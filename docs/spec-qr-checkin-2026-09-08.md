@@ -1,7 +1,7 @@
 ---
 title: 佐世保キックボクシング倶楽部 QR受付・回数券・運営会員 仕様書
 version: 1.2
-status: 耕平さんレビュー待ち（実装未着手）
+status: v2.0（docs/spec-v2-line-checkin-2026-09-14.md）に置き換え。参照のみ
 created: 2026-09-08
 updated: 2026-09-08
 client: 佐世保キックボクシング倶楽部
