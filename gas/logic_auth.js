@@ -4,7 +4,7 @@ var LOCK_LIMIT = 10;
 
 function normalizeName(s) {
   return String(s === undefined || s === null ? '' : s)
-    .normalize('NFKC')
+    .replace(/[｡-ﾟ]+/g, function (m) { return m.normalize('NFKC'); })
     .replace(/　/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
