@@ -1,29 +1,33 @@
-# キック参加管理アプリ v2 — MVP-1 実装計画
+# キック参加管理アプリ v2 — MVP-1 実装計画（ブラウザ版）
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 会員が LINE ログイン → 会場QR → ［出席する］で出席が記録され、残り回数・通算参加・参加率・今日の出席者が見える。管理者は「今日」「承認待ち」「開催」を管理画面で扱える（仕様書 §13 の MVP-1）。
+**Goal:** 会員が会場QR（アプリのURL）を読み、初回だけ名前＋暗証番号4桁を入れ、以後は［出席する］だけで出席が記録され、残り回数・通算参加・参加率・今日の出席者が見える。管理者は「今日」「承認待ち」「開催」「会員（番号リセット）」を管理画面で扱える（仕様書 §13 の MVP-1）。
 
-**Architecture:** GAS（Google Apps Script）の Web アプリが受付窓口。判定ロジック（出席判定・開催の選択・通算番号・参加率）は SpreadsheetApp に依存しない純粋な関数として `gas/logic_*.js` に分け、Node の `node --test` で単体テストする。シート読み書きは `gas/repo.js` に隔離。画面は GitHub Pages の静的 HTML（`v2/`）で、LIFF SDK でログインし、GAS へ `POST`（`Content-Type: text/plain`）する。
+**Architecture:** GAS（Google Apps Script）の Web アプリが受付窓口。判定ロジック（出席判定・開催の選択・通算番号・参加率・暗証番号の検証）は SpreadsheetApp に依存しない純粋な関数として `gas/logic_*.js` に分け、Node の `node --test` で単体テストする。シート読み書きは `gas/repo.js` に隔離。画面は GitHub Pages の静的 HTML（`v2/`）。本人特定は「名前＋暗証番号 → GAS がトークン（合鍵）を発行 → ブラウザの localStorage に保存 → 以後はトークンを同送」。
 
-**Tech Stack:** Google Apps Script（V8）、clasp、LIFF SDK v2、Google スプレッドシート、静的 HTML/JS（フレームワーク無し）、Node 24 `node --test`（テストのみ）
+**Tech Stack:** Google Apps Script（V8）、clasp、Google スプレッドシート、静的 HTML/JS（フレームワーク無し）、Node 24 `node --test`（テストのみ）
 
-**Spec:** `docs/spec-v2-line-checkin-2026-09-14.md`（v2.1）
+**Spec:** `docs/spec-v2-line-checkin-2026-09-14.md`（v2.2）
 
 ## Global Constraints
 
-- 既存の `index.html`・既存GAS・既存シートの `AppData!A1` は**触らない**（仕様書 §2-1）
-- 新シートは別ファイル。5タブ＋設定タブ、**1件1行・追記が基本**（§5）
-- 本人特定は LIFF の IDトークンを GAS が `https://api.line.me/oauth2/v2.1/verify` で検証してから（§4、§10）。フロントの userId を信用しない
+- 既存の `index.html`・既存GAS・既存シート（sasebo.kickboxing 所有）は**触らない**（仕様書 §2-1, §4）
+- 新シート「キック受付v2」・GAS・clasp は **asahiya.kk@gmail.com**（§2-21）
+- 5タブ＋設定タブ、**1件1行・追記が基本**（§5）。行は削除せず状態で無効化
+- 本人特定はトークン（ランダム32文字）。フロントから会員IDや表示名で本人を指定させない（§10）
+- 暗証番号は `SHA-256(番号 + ":" + 会員ID)` のハッシュのみ保存。生の番号をログにも残さない（§5.1, §10）
+- 連続10回のログイン失敗でロック。管理者のリセットで解除（§5.1 K列）
+- 表示名は退会以外で重複不可（§2-4）
 - 管理者APIは会員タブの「管理者」列で判定（§10）
-- チャネルID・シートIDは GAS のスクリプトプロパティ。コード・HTMLに直書きしない。`v2/config.js` に置いてよいのは **LIFF ID と GAS の公開URL** だけ（§10）
-- 会員に返す情報は §2-10・§2-18 の範囲：他人の残り回数・未収・userId・**購入履歴と金額**は返さない
+- シートIDは GAS のスクリプトプロパティ。`v2/config.js` に置くのは **GAS の公開URL** だけ（§10）
+- 会員に返す情報は §2-10・§2-18 の範囲：他人の残り回数・未収・トークン・**購入履歴と金額**は返さない
 - 日時は **GAS サーバー側の日本時間**（`appsscript.json` の `timeZone: Asia/Tokyo`）。端末の時計は使わない（§5.2）
 - `checkin` は冪等：同一開催ID＋会員ID で有効な出席があれば何もしない。LockService で排他（§6）
 - エラーは日本語の定型文。GAS の生エラーを返さない（§10）
-- リポジトリ `kohei0306/kickboxing-app` は **public**（2026-09-17 確認。CLAUDE.md の「private」記載は誤り）。GitHub Pages は `main` ブランチ直下から配信 → **push ＝ 公開。push 前に耕平さんの承認を取る**
+- リポジトリ `kohei0306/kickboxing-app` は **public**（2026-09-17 確認）。GitHub Pages は `main` 直下から配信 → **push ＝ 公開。push 前に耕平さんの承認を取る**
 - 入会日＝初めて出席した日。通算参加回数・参加率は列に持たず毎回計算（§5.1）
-- 参加率の分母＝「入会日 ≤ 日付 ≤ 今日」かつ 状態≠中止 の開催数（本計画で §7 の「状態＝終了」をこの定義に揃える。開催を「終了」に変える手作業・トリガーを不要にするため）
+- 参加率の分母＝「入会日 ≤ 日付 ≤ 今日」かつ 状態≠中止 の開催数（Task 1 で §7 をこの定義に揃える）
 
 ## MVP-1 に含めないもの（別計画）
 
@@ -46,20 +50,23 @@ app/kickboxing-app/
 │  ├ logic_session.js       … 今日の開催の選択・通算番号の振り直し（純粋）
 │  ├ logic_checkin.js       … 出席の判定（純粋）
 │  ├ logic_stats.js         … 通算参加回数・参加率（純粋）
+│  ├ logic_auth.js          … 表示名の正規化・暗証番号の形式検査・ロック判定（純粋）
 │  ├ repo.js                … シート読み書き・タブ作成（SpreadsheetApp 依存）
-│  ├ auth.js                … IDトークン検証（UrlFetchApp 依存）
+│  ├ auth.js                … ハッシュ・トークン発行・トークンで会員を引く（Utilities 依存）
 │  └ api.js                 … doPost ルーター・各 action（LockService 依存）
 ├ tests/
 │  ├ logic_time.test.js
 │  ├ logic_session.test.js
 │  ├ logic_checkin.test.js
-│  └ logic_stats.test.js
+│  ├ logic_stats.test.js
+│  ├ logic_auth.test.js
+│  └ repo_headers.test.js
 └ v2/                       … GitHub Pages で配信（public）
-   ├ config.js              … LIFF_ID / GAS_URL
-   ├ api.js                 … fetch ラッパー
+   ├ config.js              … GAS_URL
+   ├ api.js                 … fetch ラッパー＋トークンの保存
    ├ style.css
    ├ checkin.html           … 会員画面
-   └ admin.html             … 管理画面（今日／承認待ち／開催）
+   └ admin.html             … 管理画面（今日／承認待ち／開催／会員）
 ```
 
 **純粋ロジックの共通ルール**：ファイル末尾に
@@ -72,7 +79,7 @@ if (typeof module !== 'undefined') module.exports = { ... };
 
 | タブ | キー |
 |---|---|
-| 会員 | `会員ID, LINE userId, 表示名, 区分, 管理者, 状態, 残り回数, 入会日, 承認日時, 備考` |
+| 会員 | `会員ID, 表示名, 暗証番号ハッシュ, トークン, 区分, 管理者, 状態, 残り回数, 入会日, 承認日時, ログイン失敗, 備考` |
 | 出席 | `出席ID, 日時, 開催ID, 会員ID, 表示名, 支払い種別, 金額, 消化, 記録方法, 状態, 取消日時・取消者` |
 | 購入 | `購入ID, 日時, 会員ID, 種別, 付与回数, 金額, 入金, 入金日, 記録者, 備考` |
 | 開催 | `開催ID, 通算番号, 日付, 時間帯, 会場, 状態, 出席人数` |
@@ -87,29 +94,17 @@ if (typeof module !== 'undefined') module.exports = { ... };
 
 **Files:** なし（外部サービスの設定）
 
-この Task が終わるまで Task 6 以降（GAS の push・実機確認）は進められない。Task 1〜5（純粋ロジック＋テスト）は先に進めてよい。
+この Task が終わるまで Task 7 以降（GAS の push・実機確認）は進められない。Task 1〜6（純粋ロジック＋テスト）は先に進めてよい。
 
-- [ ] **Step 1: LINE ログインチャネルと LIFF アプリを作る**
-
-  1. https://developers.line.biz/console/ に倶楽部の LINE 公式アカウントと同じアカウントでログイン
-  2. 公式アカウントが入っている**プロバイダー**を開く →「新規チャネル作成」→「LINEログイン」
-  3. チャネル名「佐世保キックボクシング倶楽部 受付」、アプリタイプ「ウェブアプリ」、メールは倶楽部のもの
-  4. 作成後「チャネル基本設定」の **チャネルID**（数字10桁）を控える → Step 4 で使う
-  5. 「LIFF」タブ →「追加」：LIFFアプリ名「受付」、サイズ **Full**、エンドポイントURL **`https://kohei0306.github.io/kickboxing-app/v2/checkin.html`**、Scope は **profile と openid** にチェック、ボットリンク機能は Off
-  6. 発行された **LIFF ID**（`1234567890-abcdefgh` 形式）を控える → Task 8 で `v2/config.js` に入れる
-  7. チャネルを「公開」にする（「開発中」のままだと他の人がログインできない）
+- [x] **Step 1: 既存シートのバックアップ** — 2026-09-17 実施済み。asahiya.kk 所有の「アプリ用佐世保キックボクシング倶楽部」
 
 - [ ] **Step 2: 新しいスプレッドシートを作る**
 
-  1. 耕平さんが決めたアカウント（`asahiya.kk` か `sasebo.kickboxing`）で Google スプレッドシートを新規作成。名前「キック受付v2」
-  2. URL の `/d/` と `/edit` の間の文字列（**シートID**）を控える → Step 4 で使う
+  1. **asahiya.kk@gmail.com** で Google スプレッドシートを新規作成。名前「キック受付v2」
+  2. URL の `/d/` と `/edit` の間の文字列（**シートID**）を控える → Step 3 で使う
   3. タブはまだ作らなくてよい（Task 6 の `setupSheets` が作る）
 
-- [ ] **Step 3: 既存シートのバックアップ**
-
-  `sasebo.kickboxing@gmail.com` で既存シート `12JDY9PgJnQL3EYFW4fUSgCC7OEZSI4Up3iIwXb4Ih_w` を開き「ファイル → コピーを作成」。名前「バックアップ_2026-09-17_v2着手前」。
-
-- [ ] **Step 4: GAS プロジェクトを作って clasp を使えるようにする**
+- [ ] **Step 3: GAS プロジェクトを作って clasp を使えるようにする**
 
   PowerShell で（1行ずつ）：
   ```bash
@@ -118,25 +113,24 @@ if (typeof module !== 'undefined') module.exports = { ... };
   ```bash
   clasp login
   ```
-  （ブラウザが開く。Step 2 のシートと**同じアカウント**でログイン）
+  （ブラウザが開く。**asahiya.kk** でログイン）
   ```bash
   cd C:\Users\asahi\dev\asahiya\app\kickboxing-app
   ```
   ```bash
   clasp create --type standalone --title "キック受付v2" --rootDir gas
   ```
-  → `gas/.clasp.json` ができる。もし「Apps Script API が無効」と出たら https://script.google.com/home/usersettings で「Google Apps Script API」を **オン** にして再実行。
+  → `gas/.clasp.json` ができる。もし「Apps Script API が無効」と出たら https://script.google.com/home/usersettings （asahiya.kk）で「Google Apps Script API」を **オン** にして再実行。
 
-  次に https://script.google.com/ で「キック受付v2」を開き、左の歯車「プロジェクトの設定」→「スクリプト プロパティ」に2つ追加：
+  次に https://script.google.com/ で「キック受付v2」を開き、左の歯車「プロジェクトの設定」→「スクリプト プロパティ」に1つ追加：
 
   | プロパティ | 値 |
   |---|---|
   | `SHEET_ID` | Step 2 のシートID |
-  | `LINE_CHANNEL_ID` | Step 1 のチャネルID |
 
-- [ ] **Step 5: Claude に報告**
+- [ ] **Step 4: Claude に報告**
 
-  「LIFF ID は ◯◯、clasp create 済み、スクリプトプロパティ入れた」と伝える。チャネルIDとシートIDは Claude に伝えなくてよい（GAS 側にだけあればよい）。
+  「clasp create 済み、SHEET_ID 入れた」と伝える。シートIDは Claude に伝えなくてよい。
 
 ---
 
@@ -157,7 +151,7 @@ if (typeof module !== 'undefined') module.exports = { ... };
 {
   "name": "kickboxing-app-v2",
   "private": true,
-  "description": "佐世保キックボクシング倶楽部 参加管理アプリ v2（GAS＋LIFF）",
+  "description": "佐世保キックボクシング倶楽部 参加管理アプリ v2（GAS＋ブラウザ）",
   "scripts": {
     "test": "node --test tests/"
   }
@@ -752,10 +746,135 @@ git commit -m "v2 MVP-1: 通算参加回数と参加率（logic_stats）"
 
 ---
 
-## Task 6: repo.js — シートの読み書きとタブ作成（GAS 依存）
+## Task 6: logic_auth.js — 表示名の正規化・暗証番号の形式検査・ロック判定
+
+**Files:**
+- Create: `gas/logic_auth.js`
+- Test: `tests/logic_auth.test.js`
+
+**Interfaces:**
+- Produces:
+  - `normalizeName(s)` → 前後の空白を除き、全角空白を半角に、連続空白を1つに
+  - `validateName(s)` → `{ ok: true, name }` or `{ ok: false, message }`（1〜20文字）
+  - `validatePin(pin)` → `{ ok: true }` or `{ ok: false, message }`（数字4桁のみ）
+  - `findByName(members, name)` → 退会以外で表示名が一致する会員 or `null`
+  - `isLocked(failCount)` → `Number(failCount) >= 10`
+  - `LOCK_LIMIT = 10`
+
+- [ ] **Step 1: 失敗するテストを書く**
+
+`tests/logic_auth.test.js`：
+```js
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { normalizeName, validateName, validatePin, findByName, isLocked } = require('../gas/logic_auth.js');
+
+test('normalizeName は前後空白・全角空白・連続空白を整える', () => {
+  assert.equal(normalizeName('  のぶさん　（最強生物） '), 'のぶさん （最強生物）');
+  assert.equal(normalizeName('ミヤ   さん'), 'ミヤ さん');
+});
+
+test('validateName は1〜20文字', () => {
+  assert.equal(validateName('').ok, false);
+  assert.equal(validateName('あ'.repeat(21)).ok, false);
+  assert.deepEqual(validateName(' ミヤさん '), { ok: true, name: 'ミヤさん' });
+});
+
+test('validatePin は数字4桁だけ', () => {
+  assert.equal(validatePin('1234').ok, true);
+  assert.equal(validatePin('123').ok, false);
+  assert.equal(validatePin('12a4').ok, false);
+  assert.equal(validatePin(1234).ok, true);
+});
+
+test('findByName は退会を除いて一致を返す', () => {
+  const members = [
+    { 会員ID: 'M2', 表示名: 'ミヤさん', 状態: '退会' },
+    { 会員ID: 'M3', 表示名: 'ミヤさん', 状態: '有効' },
+    { 会員ID: 'M4', 表示名: 'ジン', 状態: '承認待ち' },
+  ];
+  assert.equal(findByName(members, ' ミヤさん').会員ID, 'M3');
+  assert.equal(findByName(members, 'ジン').会員ID, 'M4');
+  assert.equal(findByName(members, 'いない'), null);
+});
+
+test('isLocked は10回以上で true', () => {
+  assert.equal(isLocked(9), false);
+  assert.equal(isLocked(10), true);
+  assert.equal(isLocked(''), false);
+});
+```
+
+- [ ] **Step 2: 失敗を確認**
+
+```bash
+npm.cmd test
+```
+Expected: FAIL（`Cannot find module '../gas/logic_auth.js'`）
+
+- [ ] **Step 3: 実装**
+
+`gas/logic_auth.js`：
+```js
+// 本人特定まわりの純粋ロジック。ハッシュ計算やシート操作は auth.js（GAS 依存）に置く。
+
+var LOCK_LIMIT = 10;
+
+function normalizeName(s) {
+  return String(s === undefined || s === null ? '' : s)
+    .replace(/\u3000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function validateName(s) {
+  var name = normalizeName(s);
+  if (!name) return { ok: false, message: '倶楽部での名前を入力してください' };
+  if (name.length > 20) return { ok: false, message: '名前は20文字までです' };
+  return { ok: true, name: name };
+}
+
+function validatePin(pin) {
+  if (!/^\d{4}$/.test(String(pin))) return { ok: false, message: '暗証番号は数字4桁で入力してください' };
+  return { ok: true };
+}
+
+function findByName(members, name) {
+  var key = normalizeName(name);
+  for (var i = 0; i < members.length; i++) {
+    if (members[i].状態 !== '退会' && normalizeName(members[i].表示名) === key) return members[i];
+  }
+  return null;
+}
+
+function isLocked(failCount) {
+  return (Number(failCount) || 0) >= LOCK_LIMIT;
+}
+
+if (typeof module !== 'undefined') module.exports = { normalizeName, validateName, validatePin, findByName, isLocked, LOCK_LIMIT };
+```
+
+- [ ] **Step 4: テストが通ることを確認**
+
+```bash
+npm.cmd test
+```
+Expected: 28 pass
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add gas/logic_auth.js tests/logic_auth.test.js
+git commit -m "v2 MVP-1: 表示名・暗証番号の検査ロジック（logic_auth）"
+```
+
+---
+
+## Task 7: repo.js — シートの読み書きとタブ作成（GAS 依存）
 
 **Files:**
 - Create: `gas/repo.js`
+- Test: `tests/repo_headers.test.js`
 
 **Interfaces:**
 - Consumes: スクリプトプロパティ `SHEET_ID`
@@ -763,12 +882,10 @@ git commit -m "v2 MVP-1: 通算参加回数と参加率（logic_stats）"
   - `Repo.readAll(tab)` → 行オブジェクト配列（`_row` に実際の行番号）
   - `Repo.append(tab, obj)` → 追記した行番号
   - `Repo.update(tab, rowNumber, patch)` → 指定列だけ上書き
-  - `Repo.nextId(tab, prefix)` → `'M' + (行数+1)` のようなID
+  - `Repo.nextId(tab)` → `'M' + 行番号` のようなID
   - `Repo.setting(key, defaultValue)` → 設定タブの値
   - `Repo.prices()` → `{ trial:{金額,付与回数}, drop_in:…, ticket5:…, ticket5_staff:… }`（有効なものだけ）
   - `setupSheets()` → 6タブと見出しを作る（既にあれば触らない）。料金の初期4行と設定の初期2行も入れる。**GAS エディタから1回だけ手で実行**
-
-単体テストは無し（SpreadsheetApp が要る）。Step 4 の手動確認で代える。
 
 - [ ] **Step 1: 実装**
 
@@ -778,7 +895,7 @@ git commit -m "v2 MVP-1: 通算参加回数と参加率（logic_stats）"
 // 日付・日時は文字列で保存する（列の表示形式を「書式なしテキスト」にする）。
 
 var HEADERS = {
-  '会員': ['会員ID', 'LINE userId', '表示名', '区分', '管理者', '状態', '残り回数', '入会日', '承認日時', '備考'],
+  '会員': ['会員ID', '表示名', '暗証番号ハッシュ', 'トークン', '区分', '管理者', '状態', '残り回数', '入会日', '承認日時', 'ログイン失敗', '備考'],
   '出席': ['出席ID', '日時', '開催ID', '会員ID', '表示名', '支払い種別', '金額', '消化', '記録方法', '状態', '取消日時・取消者'],
   '購入': ['購入ID', '日時', '会員ID', '種別', '付与回数', '金額', '入金', '入金日', '記録者', '備考'],
   '開催': ['開催ID', '通算番号', '日付', '時間帯', '会場', '状態', '出席人数'],
@@ -789,8 +906,6 @@ var HEADERS = {
 var ID_PREFIX = { '会員': 'M', '出席': 'A', '購入': 'P', '開催': 'K' };
 
 var Repo = (function () {
-  var cache = {};
-
   function ss() {
     var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
     if (!id) throw new Error('SHEET_ID が未設定');
@@ -840,9 +955,9 @@ var Repo = (function () {
     });
   }
 
+  // 追記される行番号をIDにする（2行目なら M2）。行は削除しない運用が前提
   function nextId(tab) {
-    var last = sheet(tab).getLastRow(); // 見出し込み
-    return ID_PREFIX[tab] + String(last); // 2行目なら M2（1行目は見出し）
+    return ID_PREFIX[tab] + String(sheet(tab).getLastRow() + 1);
   }
 
   function setting(key, defaultValue) {
@@ -897,7 +1012,7 @@ function setupSheets() {
 }
 ```
 
-- [ ] **Step 2: 見出しがテストの期待と一致することを Node で確認**
+- [ ] **Step 2: 見出しが仕様と一致することを Node で確認**
 
 `tests/repo_headers.test.js`：
 ```js
@@ -910,7 +1025,7 @@ test('repo.js の HEADERS が仕様書 §5 の列と一致', () => {
   const m = src.match(/var HEADERS = (\{[\s\S]*?\n\});/);
   assert.ok(m, 'HEADERS が見つからない');
   const HEADERS = eval('(' + m[1] + ')');
-  assert.deepEqual(HEADERS['会員'], ['会員ID', 'LINE userId', '表示名', '区分', '管理者', '状態', '残り回数', '入会日', '承認日時', '備考']);
+  assert.deepEqual(HEADERS['会員'], ['会員ID', '表示名', '暗証番号ハッシュ', 'トークン', '区分', '管理者', '状態', '残り回数', '入会日', '承認日時', 'ログイン失敗', '備考']);
   assert.deepEqual(HEADERS['出席'], ['出席ID', '日時', '開催ID', '会員ID', '表示名', '支払い種別', '金額', '消化', '記録方法', '状態', '取消日時・取消者']);
   assert.deepEqual(HEADERS['開催'], ['開催ID', '通算番号', '日付', '時間帯', '会場', '状態', '出席人数']);
 });
@@ -918,7 +1033,7 @@ test('repo.js の HEADERS が仕様書 §5 の列と一致', () => {
 ```bash
 npm.cmd test
 ```
-Expected: 24 pass
+Expected: 29 pass
 
 - [ ] **Step 3: GAS に push（Task 0 完了後）**
 
@@ -928,11 +1043,11 @@ cd C:\Users\asahi\dev\asahiya\app\kickboxing-app
 ```bash
 clasp push
 ```
-Expected: `Pushed 8 files.`（appsscript.json＋js 7本。api.js・auth.js は Task 7 でまだ無ければ 5本）
+Expected: `Pushed N files.`
 
 - [ ] **Step 4: setupSheets を手で1回実行して確認**
 
-https://script.google.com/ で「キック受付v2」を開く → 関数の選択で `setupSheets` → ▶実行（初回は権限の許可が出る。「詳細」→「安全ではないページに移動」→許可）。
+https://script.google.com/ （asahiya.kk）で「キック受付v2」を開く → 関数の選択で `setupSheets` → ▶実行（初回は権限の許可が出る。「詳細」→「安全ではないページに移動」→許可）。
 新シートに **会員／出席／購入／開催／料金／設定** の6タブと見出しがあり、料金に4行、設定に2行入っていること。
 
 - [ ] **Step 5: Commit**
@@ -944,48 +1059,67 @@ git commit -m "v2 MVP-1: シートの読み書きとタブ作成（repo）"
 
 ---
 
-## Task 7: auth.js と api.js — IDトークン検証と受付窓口（GAS 依存）
+## Task 8: auth.js と api.js — 暗証番号・トークンと受付窓口（GAS 依存）
 
 **Files:**
 - Create: `gas/auth.js`
 - Create: `gas/api.js`
+- Modify: `docs/spec-v2-line-checkin-2026-09-14.md`（§5.1 C列のハッシュ定義）
 
 **Interfaces:**
-- Consumes: `decideCheckin`（Task 4）、`pickTodaySession`・`renumberSessions`（Task 3）、`memberStats`（Task 5）、`formatDate`・`formatDateTime`（Task 2）、`Repo`（Task 6）、スクリプトプロパティ `LINE_CHANNEL_ID`
-- Produces: `doPost(e)`。リクエストは JSON `{ action, idToken, ...params }`。レスポンスは JSON。
-  - 会員：`me`, `register {displayName}`, `rename {displayName}`, `checkin {choice?}`
-  - 管理者：`admin.today`, `admin.pending`, `admin.approve {pendingMemberId, linkToMemberId?}`, `admin.sessions {month?}`, `admin.upsertSession {開催ID?, 日付, 時間帯, 会場, 状態}`
-  - 成功：`{ ok: true, ...data }`／失敗：`{ ok: false, message }`／要選択：`{ ok: false, needChoice: true, options }`
+- Consumes: `decideCheckin`（Task 4）、`pickTodaySession`・`renumberSessions`（Task 3）、`memberStats`（Task 5）、`validateName`・`validatePin`・`findByName`・`isLocked`（Task 6）、`formatDate`・`formatDateTime`（Task 2）、`Repo`（Task 7）、スクリプトプロパティ `PIN_PEPPER`
+- Produces: `doPost(e)`。リクエストは JSON `{ action, token?, ...params }`。レスポンスは JSON。
+  - 誰でも：`register {name, pin}` → `{ok, token, status}`／`login {name, pin}` → `{ok, token, status}`
+  - 会員（token 必須）：`me`, `rename {name}`, `changePin {currentPin, newPin}`, `checkin {choice?}`
+  - 管理者：`admin.today`, `admin.pending`, `admin.approve {pendingMemberId, linkToMemberId?}`, `admin.sessions {month?}`, `admin.upsertSession {開催ID?, 日付, 時間帯, 会場, 状態}`, `admin.members`, `admin.resetPin {会員ID, pin}`
+  - 成功：`{ ok: true, ...data }`／失敗：`{ ok: false, message }`／要ログイン：`{ ok: false, needLogin: true, message }`／要選択：`{ ok: false, needChoice: true, options }`
 
-- [ ] **Step 1: auth.js を書く**
+- [ ] **Step 1: 仕様書 §5.1 のハッシュ定義を直す**
+
+会員タブ C列の `SHA-256(暗証番号 + ":" + 会員ID)` を **`SHA-256(PIN_PEPPER + ":" + 暗証番号)`（PIN_PEPPER はスクリプトプロパティのランダム文字列）** に置き換える。§10 の同じ記述も直す。
+理由：会員IDを塩にすると「既存会員に紐づけ」で行を移した瞬間に照合できなくなる。
+
+耕平さんに **スクリプトプロパティ `PIN_PEPPER`** を追加してもらう（値は 20文字以上の適当な英数字。例は書かない。耕平さんが決めて GAS にだけ入れる）。
+
+- [ ] **Step 2: auth.js を書く**
 
 `gas/auth.js`：
 ```js
-// LIFF の IDトークンを LINE の verify API で検証し、userId と LINE表示名を返す。
-// 失敗したら null。フロントから来た userId をそのまま信用しない（仕様書 §10）。
+// 暗証番号のハッシュとトークン（合鍵）。生の暗証番号はここで消費し、どこにも残さない。
 
-function verifyIdToken(idToken) {
-  if (!idToken) return null;
-  var channelId = PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_ID');
-  var res = UrlFetchApp.fetch('https://api.line.me/oauth2/v2.1/verify', {
-    method: 'post',
-    payload: { id_token: idToken, client_id: channelId },
-    muteHttpExceptions: true,
-  });
-  if (res.getResponseCode() !== 200) return null;
-  var j = JSON.parse(res.getContentText());
-  return { userId: j.sub, name: j.name || '' };
+function hashPin(pin) {
+  var pepper = PropertiesService.getScriptProperties().getProperty('PIN_PEPPER');
+  if (!pepper) throw new Error('PIN_PEPPER が未設定');
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pepper + ':' + String(pin), Utilities.Charset.UTF_8);
+  return bytes.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+function newToken() {
+  return Utilities.getUuid().replace(/-/g, '');
+}
+
+function memberByToken(members, token) {
+  if (!token) return null;
+  for (var i = 0; i < members.length; i++) {
+    if (members[i].トークン && members[i].トークン === token && members[i].状態 !== '退会') return members[i];
+  }
+  return null;
+}
+
+function isAdminMember(m) {
+  return !!m && (m.管理者 === true || m.管理者 === 'TRUE');
 }
 ```
 
-- [ ] **Step 2: api.js を書く**
+- [ ] **Step 3: api.js を書く**
 
 `gas/api.js`：
 ```js
-// 受付窓口。POST の JSON を action で振り分ける。
-// すべて①トークン検証 ②会員を引く ③処理 の順（仕様書 §6）。
+// 受付窓口。POST の JSON を action で振り分ける（仕様書 §6）。
 
 var MSG_FAIL = '処理に失敗しました。時間をおいてもう一度お試しください';
+var MSG_BAD_LOGIN = '名前か暗証番号が違います';
+var MSG_LOCKED = '暗証番号の間違いが続いたためロックされています。管理者に連絡してください';
 
 function doPost(e) {
   var out;
@@ -1005,27 +1139,67 @@ function doGet() {
 }
 
 function handleRequest(body) {
-  var user = verifyIdToken(body.idToken);
-  if (!user) return { ok: false, message: 'LINEの認証に失敗しました。画面を開き直してください' };
-
-  var members = Repo.readAll('会員');
-  var me = null;
-  for (var i = 0; i < members.length; i++) {
-    if (members[i]['LINE userId'] === user.userId) { me = members[i]; break; }
-  }
-
   var action = String(body.action || '');
+  var members = Repo.readAll('会員');
+
+  if (action === 'register') return actionRegister(members, body);
+  if (action === 'login') return actionLogin(members, body);
+
+  var me = memberByToken(members, body.token);
+  if (!me) return { ok: false, needLogin: true, message: 'ログインしてください' };
+
   if (action.indexOf('admin.') === 0) {
-    if (!me || !(me.管理者 === true || me.管理者 === 'TRUE')) return { ok: false, message: '管理者だけが使えます' };
+    if (!isAdminMember(me)) return { ok: false, message: '管理者だけが使えます' };
     return handleAdmin(action, body, me);
   }
   switch (action) {
-    case 'me': return actionMe(me, user);
-    case 'register': return actionRegister(me, user, body);
-    case 'rename': return actionRename(me, body);
+    case 'me': return actionMe(me);
+    case 'rename': return actionRename(members, me, body);
+    case 'changePin': return actionChangePin(me, body);
     case 'checkin': return actionCheckin(me, body);
     default: return { ok: false, message: '不明な操作です' };
   }
+}
+
+// ---------- 登録・ログイン ----------
+
+function actionRegister(members, body) {
+  var v = validateName(body.name);
+  if (!v.ok) return v;
+  var p = validatePin(body.pin);
+  if (!p.ok) return p;
+  if (findByName(members, v.name)) return { ok: false, message: 'その名前はすでに使われています。少し変えて登録してください（例：のぶさん（最強生物））' };
+  var token = newToken();
+  Repo.append('会員', {
+    会員ID: Repo.nextId('会員'), 表示名: v.name, 暗証番号ハッシュ: hashPin(body.pin), トークン: token,
+    区分: '一般', 管理者: false, 状態: '承認待ち', 残り回数: 0, 入会日: '', 承認日時: '', ログイン失敗: 0, 備考: '',
+  });
+  return { ok: true, token: token, status: '承認待ち', message: '登録しました。管理者の承認をお待ちください' };
+}
+
+function actionLogin(members, body) {
+  var v = validateName(body.name);
+  if (!v.ok) return { ok: false, message: MSG_BAD_LOGIN };
+  var p = validatePin(body.pin);
+  if (!p.ok) return { ok: false, message: MSG_BAD_LOGIN };
+  var m = findByName(members, v.name);
+  if (!m) return { ok: false, message: MSG_BAD_LOGIN };
+  if (isLocked(m.ログイン失敗)) return { ok: false, message: MSG_LOCKED };
+  if (m.暗証番号ハッシュ !== hashPin(body.pin)) {
+    Repo.update('会員', m._row, { ログイン失敗: (Number(m.ログイン失敗) || 0) + 1 });
+    return { ok: false, message: MSG_BAD_LOGIN };
+  }
+  var token = m.トークン || newToken();
+  Repo.update('会員', m._row, { トークン: token, ログイン失敗: 0 });
+  return { ok: true, token: token, status: m.状態 };
+}
+
+function actionChangePin(me, body) {
+  var p = validatePin(body.newPin);
+  if (!p.ok) return p;
+  if (me.暗証番号ハッシュ !== hashPin(body.currentPin)) return { ok: false, message: '現在の暗証番号が違います' };
+  Repo.update('会員', me._row, { 暗証番号ハッシュ: hashPin(body.newPin) });
+  return { ok: true, message: '暗証番号を変更しました' };
 }
 
 // ---------- 会員向け ----------
@@ -1046,15 +1220,8 @@ function nextSessionAfter(sessions, todayStr) {
   return future.length ? { 日付: future[0].日付, 時間帯: future[0].時間帯, 通算番号: future[0].通算番号 } : null;
 }
 
-function actionMe(me, user) {
+function actionMe(me) {
   var ctx = todayContext();
-  var pub = {
-    ok: true,
-    today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯, count: ctx.todays.length, names: ctx.todays.map(function (a) { return a.表示名; }) } : null,
-    next: nextSessionAfter(ctx.sessions, ctx.todayStr),
-    lineName: user.name,
-  };
-  if (!me) return Object.assign(pub, { status: '未登録' });
   var stats = memberStats(ctx.sessions, ctx.attendances, me.会員ID, me.入会日, ctx.todayStr);
   var mine = ctx.attendances.filter(function (a) { return a.会員ID === me.会員ID && a.状態 === '有効'; });
   var byId = {};
@@ -1063,41 +1230,32 @@ function actionMe(me, user) {
     var s = byId[a.開催ID] || {};
     return { 日付: s.日付 || String(a.日時).slice(0, 10), 通算番号: s.通算番号 || '', 種別: a.支払い種別 };
   }).sort(function (a, b) { return a.日付 < b.日付 ? 1 : -1; });
-  return Object.assign(pub, {
+  return {
+    ok: true,
     status: me.状態,
     displayName: me.表示名,
     kubun: me.区分,
-    isAdmin: me.管理者 === true || me.管理者 === 'TRUE',
+    isAdmin: isAdminMember(me),
     remaining: Number(me.残り回数) || 0,
     joinDate: me.入会日 || '',
     stats: stats,
     attendedToday: ctx.todays.some(function (a) { return a.会員ID === me.会員ID; }),
     history: history,
-  });
+    today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯, count: ctx.todays.length, names: ctx.todays.map(function (a) { return a.表示名; }) } : null,
+    next: nextSessionAfter(ctx.sessions, ctx.todayStr),
+  };
 }
 
-function actionRegister(me, user, body) {
-  if (me) return { ok: false, message: 'すでに登録されています' };
-  var name = String(body.displayName || '').trim();
-  if (!name) return { ok: false, message: '倶楽部での名前を入力してください' };
-  if (name.length > 20) return { ok: false, message: '名前は20文字までです' };
-  Repo.append('会員', {
-    会員ID: Repo.nextId('会員'), 'LINE userId': user.userId, 表示名: name, 区分: '一般', 管理者: false,
-    状態: '承認待ち', 残り回数: 0, 入会日: '', 承認日時: '', 備考: 'LINE表示名: ' + user.name,
-  });
-  return { ok: true, message: '登録しました。管理者の承認をお待ちください' };
-}
-
-function actionRename(me, body) {
-  if (!me) return { ok: false, message: '先に登録してください' };
-  var name = String(body.displayName || '').trim();
-  if (!name || name.length > 20) return { ok: false, message: '名前は1〜20文字で入力してください' };
-  Repo.update('会員', me._row, { 表示名: name });
-  return { ok: true, displayName: name };
+function actionRename(members, me, body) {
+  var v = validateName(body.name);
+  if (!v.ok) return v;
+  var dup = findByName(members, v.name);
+  if (dup && dup.会員ID !== me.会員ID) return { ok: false, message: 'その名前はすでに使われています' };
+  Repo.update('会員', me._row, { 表示名: v.name });
+  return { ok: true, displayName: v.name };
 }
 
 function actionCheckin(me, body) {
-  if (!me) return { ok: false, message: '先に登録してください' };
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -1144,6 +1302,8 @@ function handleAdmin(action, body, admin) {
     case 'admin.approve': return adminApprove(body, admin);
     case 'admin.sessions': return adminSessions(body);
     case 'admin.upsertSession': return adminUpsertSession(body);
+    case 'admin.members': return adminMembers();
+    case 'admin.resetPin': return adminResetPin(body, admin);
     default: return { ok: false, message: '不明な操作です' };
   }
 }
@@ -1167,13 +1327,14 @@ function adminPending() {
     pending: members.filter(function (m) { return m.状態 === '承認待ち'; }).map(function (m) {
       return { 会員ID: m.会員ID, 表示名: m.表示名, 備考: m.備考 };
     }),
-    candidates: members.filter(function (m) { return m.状態 === '有効' && !m['LINE userId']; }).map(function (m) {
+    // 紐づけ候補＝有効で、まだ合鍵を持っていない（移行で入った）会員
+    candidates: members.filter(function (m) { return m.状態 === '有効' && !m.トークン; }).map(function (m) {
       return { 会員ID: m.会員ID, 表示名: m.表示名, 残り回数: m.残り回数 };
     }),
   };
 }
 
-// linkToMemberId があれば「既存会員に紐づけ」：既存行に userId を移し、承認待ち行は「退会」にして備考に印を残す
+// linkToMemberId があれば「既存会員に紐づけ」：ハッシュ・トークンを既存行へ移し、承認待ち行は「退会」にして備考に印を残す
 function adminApprove(body, admin) {
   var members = Repo.readAll('会員');
   var pending = members.filter(function (m) { return m.会員ID === body.pendingMemberId && m.状態 === '承認待ち'; })[0];
@@ -1182,9 +1343,9 @@ function adminApprove(body, admin) {
   if (body.linkToMemberId) {
     var target = members.filter(function (m) { return m.会員ID === body.linkToMemberId; })[0];
     if (!target) return { ok: false, message: '紐づけ先が見つかりません' };
-    if (target['LINE userId']) return { ok: false, message: 'その会員は既にLINEと紐づいています' };
-    Repo.update('会員', target._row, { 'LINE userId': pending['LINE userId'], 表示名: pending.表示名, 承認日時: nowStr });
-    Repo.update('会員', pending._row, { 'LINE userId': '', 状態: '退会', 備考: (pending.備考 || '') + ' / ' + target.会員ID + ' に統合 by ' + admin.会員ID });
+    if (target.トークン) return { ok: false, message: 'その会員はすでに端末と紐づいています' };
+    Repo.update('会員', target._row, { 表示名: pending.表示名, 暗証番号ハッシュ: pending.暗証番号ハッシュ, トークン: pending.トークン, ログイン失敗: 0, 承認日時: nowStr });
+    Repo.update('会員', pending._row, { 暗証番号ハッシュ: '', トークン: '', 状態: '退会', 備考: (pending.備考 || '') + ' / ' + target.会員ID + ' に統合 by ' + admin.会員ID });
     return { ok: true, message: pending.表示名 + ' を ' + target.表示名 + ' に紐づけました' };
   }
   Repo.update('会員', pending._row, { 状態: '有効', 承認日時: nowStr });
@@ -1231,46 +1392,62 @@ function adminUpsertSession(body) {
     lock.releaseLock();
   }
 }
+
+function adminMembers() {
+  var members = Repo.readAll('会員');
+  return {
+    ok: true,
+    list: members.filter(function (m) { return m.状態 !== '退会'; }).map(function (m) {
+      return { 会員ID: m.会員ID, 表示名: m.表示名, 区分: m.区分, 状態: m.状態, 残り回数: m.残り回数, 入会日: m.入会日,
+        ログイン失敗: Number(m.ログイン失敗) || 0, locked: isLocked(m.ログイン失敗), hasToken: !!m.トークン };
+    }),
+  };
+}
+
+function adminResetPin(body, admin) {
+  var p = validatePin(body.pin);
+  if (!p.ok) return p;
+  var members = Repo.readAll('会員');
+  var m = members.filter(function (x) { return x.会員ID === body.会員ID; })[0];
+  if (!m) return { ok: false, message: '会員が見つかりません' };
+  Repo.update('会員', m._row, { 暗証番号ハッシュ: hashPin(body.pin), トークン: newToken(), ログイン失敗: 0,
+    備考: (m.備考 || '') + ' / ' + formatDate(new Date()) + ' 番号リセット by ' + admin.会員ID });
+  return { ok: true, message: m.表示名 + ' の暗証番号をリセットしました。本人に新しい番号を伝えてください' };
+}
 ```
 
-- [ ] **Step 3: push して doGet で生存確認**
+- [ ] **Step 4: push して doGet で生存確認**
 
 ```bash
 clasp push
 ```
-GAS エディタ →「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」、実行ユーザー「自分」、アクセス「全員」→ デプロイ。表示された **ウェブアプリのURL**（`https://script.google.com/macros/s/…/exec`）を控える → Task 8 の `v2/config.js` に入れる。
+GAS エディタ →「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」、実行ユーザー「自分」、アクセス「全員」→ デプロイ。表示された **ウェブアプリのURL**（`https://script.google.com/macros/s/…/exec`）を控える → Task 9 の `v2/config.js` に入れる。
 ブラウザでその URL を開く → `{"ok":true,"app":"kick-checkin-v2"}` が出ること。
-
-- [ ] **Step 4: 管理者を1人作る（耕平さん自身）**
-
-新シートの「会員」タブに手で1行：`M2 | （空） | ミヤさん | 運営会員 | TRUE | 有効 | 0 | 2023-09-02 | | 部長`。
-※ `LINE userId` は Task 9 で初ログイン→承認待ち→「既存の M2 に紐づけ」で入る。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add gas/auth.js gas/api.js
-git commit -m "v2 MVP-1: IDトークン検証と受付窓口（auth・api）"
+git add gas/auth.js gas/api.js docs/spec-v2-line-checkin-2026-09-14.md
+git commit -m "v2 MVP-1: 暗証番号・トークンと受付窓口（auth・api）"
 ```
 
 ---
 
-## Task 8: 会員画面 v2/checkin.html（＋config.js・api.js・style.css）
+## Task 9: 会員画面 v2/checkin.html（＋config.js・api.js・style.css）
 
 **Files:**
 - Create: `v2/config.js`, `v2/api.js`, `v2/style.css`, `v2/checkin.html`
 
 **Interfaces:**
-- Consumes: `me` / `register` / `rename` / `checkin` の JSON（Task 7）
-- Produces: `window.KickApi.call(action, params)`（admin.html でも使う）、`CONFIG.LIFF_ID`、`CONFIG.GAS_URL`
+- Consumes: `register` / `login` / `me` / `rename` / `changePin` / `checkin` の JSON（Task 8）
+- Produces: `window.KickApi.call(action, params)`・`KickApi.token()`・`KickApi.setToken(t)`（admin.html でも使う）、`CONFIG.GAS_URL`
 
 - [ ] **Step 1: config.js**
 
 `v2/config.js`（公開してよい値だけ）：
 ```js
-// LIFF ID と GAS 公開URL。どちらも公開前提の値（秘密は GAS のスクリプトプロパティ側）
+// GAS 公開URL。公開前提の値（秘密は GAS のスクリプトプロパティ側）
 window.CONFIG = {
-  LIFF_ID: 'ここに LIFF ID',
   GAS_URL: 'ここに https://script.google.com/macros/s/.../exec',
 };
 ```
@@ -1279,18 +1456,24 @@ window.CONFIG = {
 
 `v2/api.js`：
 ```js
-// GAS への POST。Content-Type を text/plain にしてプリフライトを避ける。
+// GAS への POST と、合鍵（トークン）の保存。
+// Content-Type を text/plain にしてプリフライトを避ける。
 window.KickApi = {
+  KEY: 'kick_v2_token',
+  token() { try { return localStorage.getItem(this.KEY) || ''; } catch (e) { return ''; } },
+  setToken(t) { try { t ? localStorage.setItem(this.KEY, t) : localStorage.removeItem(this.KEY); } catch (e) {} },
   async call(action, params) {
-    const body = Object.assign({ action, idToken: liff.getIDToken() }, params || {});
-    const res = await fetch(CONFIG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) });
+    const body = Object.assign({ action, token: this.token() }, params || {});
+    let res;
+    try {
+      res = await fetch(CONFIG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) });
+    } catch (e) {
+      return { ok: false, message: '通信できませんでした。電波の良いところでもう一度お試しください' };
+    }
     if (!res.ok) return { ok: false, message: '通信に失敗しました（' + res.status + '）' };
-    return res.json();
-  },
-  async init() {
-    await liff.init({ liffId: CONFIG.LIFF_ID });
-    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return false; }
-    return true;
+    const json = await res.json();
+    if (json.needLogin) this.setToken('');
+    return json;
   },
 };
 ```
@@ -1304,17 +1487,19 @@ window.KickApi = {
 body { margin: 0; font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: var(--bg); color: var(--ink); }
 .wrap { max-width: 480px; margin: 0 auto; padding: 16px; }
 h1 { font-size: 18px; margin: 0 0 12px; }
+h2 { font-size: 16px; margin: 0 0 8px; }
 .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
 .big { font-size: 40px; font-weight: 700; line-height: 1.1; }
 .sub { color: var(--muted); font-size: 14px; }
 .btn { display: block; width: 100%; padding: 18px; font-size: 20px; font-weight: 700; color: #fff; background: var(--main); border: 0; border-radius: 12px; }
 .btn:disabled { background: #bbb; }
 .btn.sec { background: #fff; color: var(--main); border: 2px solid var(--main); margin-top: 8px; }
+.btn.sm { padding: 10px; font-size: 15px; }
 .list { padding: 0; margin: 8px 0 0; list-style: none; }
 .list li { padding: 8px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
 .msg { padding: 12px; border-radius: 8px; background: #fff3e0; margin-bottom: 12px; }
 .msg.err { background: #ffebee; }
-input[type=text] { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+input[type=text], input[type=password], input[type=tel], select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
 .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
 .tabs button { flex: 1; padding: 10px; border: 1px solid var(--line); background: #fff; border-radius: 8px; }
 .tabs button.on { background: var(--main); color: #fff; border-color: var(--main); }
@@ -1341,11 +1526,21 @@ td, th { border-top: 1px solid var(--line); padding: 8px 4px; text-align: left; 
   <div id="msg" class="msg hidden"></div>
   <div id="loading" class="card">読み込み中…</div>
 
-  <!-- 未登録 -->
-  <div id="v-register" class="card hidden">
-    <p>倶楽部での名前（あだ名）を入力してください</p>
-    <input type="text" id="regName" maxlength="20" placeholder="例：ミヤさん">
-    <button class="btn" id="btnRegister" style="margin-top:12px">登録する</button>
+  <!-- 合鍵なし：登録 or ログイン -->
+  <div id="v-login" class="hidden">
+    <div class="card">
+      <h2>登録済みの方</h2>
+      <input type="text" id="loginName" maxlength="20" placeholder="倶楽部での名前" autocomplete="username">
+      <input type="tel" id="loginPin" maxlength="4" inputmode="numeric" pattern="\d*" placeholder="暗証番号（4桁）" autocomplete="current-password">
+      <button class="btn" id="btnLogin" style="margin-top:12px">ログイン</button>
+    </div>
+    <div class="card">
+      <h2>はじめての方</h2>
+      <p class="sub">倶楽部での名前（あだ名）と、好きな4桁の暗証番号を決めてください。次回からはこのスマホが覚えます。</p>
+      <input type="text" id="regName" maxlength="20" placeholder="例：ミヤさん" autocomplete="off">
+      <input type="tel" id="regPin" maxlength="4" inputmode="numeric" pattern="\d*" placeholder="暗証番号（4桁）" autocomplete="new-password">
+      <button class="btn sec" id="btnRegister">登録する</button>
+    </div>
   </div>
 
   <!-- 承認待ち -->
@@ -1353,6 +1548,7 @@ td, th { border-top: 1px solid var(--line); padding: 8px 4px; text-align: left; 
     <p><b id="pendingName"></b> さん、登録ありがとうございます。</p>
     <p>管理者の承認をお待ちください。承認されると出席できるようになります。</p>
     <button class="btn sec" id="btnReload1">更新</button>
+    <button class="btn sec sm" id="btnLogout1">別の名前でログインする</button>
   </div>
 
   <!-- 通常 -->
@@ -1361,7 +1557,6 @@ td, th { border-top: 1px solid var(--line); padding: 8px 4px; text-align: left; 
       <div class="sub" id="todayLabel"></div>
       <div class="big" id="remaining"></div>
       <div class="sub" id="statsLine"></div>
-      <div id="unpaid" class="sub hidden" style="color:#c62828"></div>
     </div>
     <div class="card" id="actionCard">
       <button class="btn" id="btnCheckin">出席する</button>
@@ -1380,27 +1575,31 @@ td, th { border-top: 1px solid var(--line); padding: 8px 4px; text-align: left; 
       <b>設定</b>
       <p class="sub">表示名：<span id="myName"></span></p>
       <input type="text" id="newName" maxlength="20" placeholder="新しい表示名">
-      <button class="btn sec" id="btnRename">表示名を変更</button>
+      <button class="btn sec sm" id="btnRename">表示名を変更</button>
+      <p class="sub" style="margin-top:16px">暗証番号の変更</p>
+      <input type="tel" id="curPin" maxlength="4" inputmode="numeric" placeholder="現在の暗証番号">
+      <input type="tel" id="newPin" maxlength="4" inputmode="numeric" placeholder="新しい暗証番号（4桁）">
+      <button class="btn sec sm" id="btnChangePin">暗証番号を変更</button>
+      <button class="btn sec sm" id="btnLogout" style="margin-top:16px">この端末からログアウト</button>
       <p class="sub hidden" id="adminLink"></p>
     </div>
   </div>
 </div>
 
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="config.js"></script>
 <script src="api.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-let state = null;
 
-function show(id) { ['loading', 'v-register', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
-function msg(text, isErr) { const m = $('msg'); m.textContent = text; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
+function show(id) { ['loading', 'v-login', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
+function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 async function load() {
+  if (!KickApi.token()) { show('v-login'); return; }
   const r = await KickApi.call('me');
+  if (r.needLogin) { show('v-login'); return; }
   if (!r.ok) { msg(r.message, true); show('loading'); $('loading').textContent = '表示できませんでした'; return; }
-  state = r;
-  if (r.status === '未登録') { $('regName').value = r.lineName || ''; show('v-register'); return; }
   if (r.status === '承認待ち') { $('pendingName').textContent = r.displayName; show('v-pending'); return; }
   if (r.status !== '有効') { msg('現在は出席できません（' + r.status + '）。管理者にご確認ください', true); show('loading'); $('loading').textContent = ''; return; }
   render(r);
@@ -1409,11 +1608,7 @@ async function load() {
 
 function render(r) {
   $('myName').textContent = r.displayName;
-  if (r.kubun === '免除') {
-    $('remaining').textContent = '参加 ' + r.stats.total + ' 回目';
-  } else {
-    $('remaining').textContent = '残り ' + r.remaining + ' 回';
-  }
+  $('remaining').textContent = r.kubun === '免除' ? '参加 ' + r.stats.total + ' 回目' : '残り ' + r.remaining + ' 回';
   const rate = r.stats.rate === null ? '―' : r.stats.rate + '%';
   const since = r.joinDate ? '（' + r.joinDate.slice(5).replace('-', '/') + '入会〜）' : '';
   $('statsLine').textContent = '通算 ' + r.stats.total + ' 回参加 ／ 参加率 ' + rate + ' ' + since;
@@ -1423,14 +1618,9 @@ function render(r) {
     $('todayCount').textContent = r.today.count;
     $('todayNames').innerHTML = r.today.names.map(n => '<li>' + esc(n) + '</li>').join('');
     $('actionCard').classList.remove('hidden');
-    if (r.attendedToday) {
-      $('btnCheckin').classList.add('hidden');
-      $('doneLine').classList.remove('hidden');
-      $('doneLine').textContent = '本日は受付済みです';
-    } else {
-      $('btnCheckin').classList.remove('hidden');
-      $('doneLine').classList.add('hidden');
-    }
+    $('btnCheckin').classList.toggle('hidden', r.attendedToday);
+    $('doneLine').classList.toggle('hidden', !r.attendedToday);
+    $('doneLine').textContent = '本日は受付済みです';
   } else {
     $('todayLabel').textContent = '今日は練習日ではありません' + (r.next ? '（次回 ' + r.next.日付.slice(5).replace('-', '/') + ' ' + r.next.時間帯 + '）' : '');
     $('todayCount').textContent = '0';
@@ -1440,8 +1630,6 @@ function render(r) {
   $('history').innerHTML = r.history.map(h => '<li><span>' + esc(h.日付) + (h.通算番号 ? ' 第' + h.通算番号 + '回' : '') + '</span><span>' + esc(h.種別) + '</span></li>').join('') || '<li class="sub">まだありません</li>';
   if (r.isAdmin) { $('adminLink').innerHTML = '<a href="admin.html">管理画面を開く</a>'; $('adminLink').classList.remove('hidden'); }
 }
-
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 async function checkin(choice) {
   $('btnCheckin').disabled = true; $('btnCheckin').textContent = '記録中…';
@@ -1464,31 +1652,38 @@ async function checkin(choice) {
   await load();
 }
 
+$('btnLogin').onclick = async () => {
+  const r = await KickApi.call('login', { name: $('loginName').value, pin: $('loginPin').value });
+  if (!r.ok) { msg(r.message, true); return; }
+  KickApi.setToken(r.token); msg(''); await load();
+};
 $('btnRegister').onclick = async () => {
-  const r = await KickApi.call('register', { displayName: $('regName').value });
-  msg(r.message, !r.ok); if (r.ok) await load();
+  const r = await KickApi.call('register', { name: $('regName').value, pin: $('regPin').value });
+  if (!r.ok) { msg(r.message, true); return; }
+  KickApi.setToken(r.token); msg(r.message, false); await load();
 };
 $('btnReload1').onclick = load;
 $('btnCheckin').onclick = () => checkin(null);
 $('btnRename').onclick = async () => {
-  const r = await KickApi.call('rename', { displayName: $('newName').value });
-  msg(r.ok ? '表示名を変更しました' : r.message, !r.ok); if (r.ok) await load();
+  const r = await KickApi.call('rename', { name: $('newName').value });
+  msg(r.ok ? '表示名を変更しました' : r.message, !r.ok); if (r.ok) { $('newName').value = ''; await load(); }
 };
+$('btnChangePin').onclick = async () => {
+  const r = await KickApi.call('changePin', { currentPin: $('curPin').value, newPin: $('newPin').value });
+  msg(r.message, !r.ok); if (r.ok) { $('curPin').value = ''; $('newPin').value = ''; }
+};
+const logout = () => { if (confirm('この端末からログアウトしますか？（次回は名前と暗証番号が必要です）')) { KickApi.setToken(''); msg(''); load(); } };
+$('btnLogout').onclick = logout;
+$('btnLogout1').onclick = logout;
 
-(async () => {
-  try {
-    if (await KickApi.init()) await load();
-  } catch (e) { msg('LINEの起動に失敗しました。LINEアプリから開き直してください', true); }
-})();
+load();
 </script>
 </body>
 </html>
 ```
 
-- [ ] **Step 5: config.js に実値を入れて動作確認**
+- [ ] **Step 5: 構文確認**
 
-Task 0 の LIFF ID と Task 7 Step 3 の GAS URL を `v2/config.js` に入れる。
-ローカルでは LIFF が動かないので、**GitHub Pages に上げて確認する**（→ Task 10）。ここでは HTML の構文だけ確認：
 ```bash
 node -e "const s=require('fs').readFileSync('v2/checkin.html','utf8'); const js=s.split('<script>')[1].split('</script>')[0]; new Function(js); console.log('syntax ok')"
 ```
@@ -1503,13 +1698,13 @@ git commit -m "v2 MVP-1: 会員画面（checkin.html）"
 
 ---
 
-## Task 9: 管理画面 v2/admin.html（今日／承認待ち／開催）
+## Task 10: 管理画面 v2/admin.html（今日／承認待ち／開催／会員）
 
 **Files:**
 - Create: `v2/admin.html`
 
 **Interfaces:**
-- Consumes: `me`（isAdmin 判定）、`admin.today`、`admin.pending`、`admin.approve`、`admin.sessions`、`admin.upsertSession`（Task 7）、`KickApi`（Task 8）
+- Consumes: `me`（isAdmin 判定）、`admin.today`、`admin.pending`、`admin.approve`、`admin.sessions`、`admin.upsertSession`、`admin.members`、`admin.resetPin`（Task 8）、`KickApi`（Task 9）
 
 - [ ] **Step 1: admin.html**
 
@@ -1533,18 +1728,19 @@ git commit -m "v2 MVP-1: 会員画面（checkin.html）"
       <button data-tab="today" class="on">今日</button>
       <button data-tab="pending">承認待ち</button>
       <button data-tab="sessions">開催</button>
+      <button data-tab="members">会員</button>
     </div>
 
     <div id="t-today" class="card">
       <div id="todayHead" class="sub"></div>
       <table><thead><tr><th>時刻</th><th>名前</th><th>種別</th><th>金額</th></tr></thead><tbody id="todayRows"></tbody></table>
       <p><b>本日の受け取り合計：<span id="cashTotal">0</span> 円</b></p>
-      <button class="btn sec" id="btnTodayReload">更新</button>
+      <button class="btn sec sm" id="btnTodayReload">更新</button>
     </div>
 
     <div id="t-pending" class="card hidden">
       <div id="pendingList"></div>
-      <button class="btn sec" id="btnPendingReload">更新</button>
+      <button class="btn sec sm" id="btnPendingReload">更新</button>
     </div>
 
     <div id="t-sessions" class="card hidden">
@@ -1559,21 +1755,26 @@ git commit -m "v2 MVP-1: 会員画面（checkin.html）"
       <p class="sub" style="margin-top:16px">月：<input type="text" id="sMonth" placeholder="2026-09" style="width:120px"> <button id="btnSessionsReload">表示</button></p>
       <table><thead><tr><th>第</th><th>日付</th><th>昼夜</th><th>状態</th><th>人数</th><th></th></tr></thead><tbody id="sessionRows"></tbody></table>
     </div>
+
+    <div id="t-members" class="card hidden">
+      <p class="sub">暗証番号を忘れた人は「番号リセット」→ 新しい4桁を伝えてください（その人の全端末がログアウトします）</p>
+      <table><thead><tr><th>名前</th><th>区分</th><th>状態</th><th>残り</th><th></th></tr></thead><tbody id="memberRows"></tbody></table>
+      <button class="btn sec sm" id="btnMembersReload">更新</button>
+    </div>
   </div>
 </div>
 
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="config.js"></script>
 <script src="api.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-function msg(text, isErr) { const m = $('msg'); m.textContent = text; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
+function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['today', 'pending', 'sessions'].forEach(t => $('t-' + t).classList.toggle('hidden', t !== b.dataset.tab));
-  ({ today: loadToday, pending: loadPending, sessions: loadSessions })[b.dataset.tab]();
+  ['today', 'pending', 'sessions', 'members'].forEach(t => $('t-' + t).classList.toggle('hidden', t !== b.dataset.tab));
+  ({ today: loadToday, pending: loadPending, sessions: loadSessions, members: loadMembers })[b.dataset.tab]();
 });
 
 async function loadToday() {
@@ -1590,8 +1791,8 @@ async function loadPending() {
   if (!r.pending.length) { $('pendingList').innerHTML = '<p class="sub">承認待ちはありません</p>'; return; }
   const options = '<option value="">（新規会員として承認）</option>' + r.candidates.map(c => '<option value="' + esc(c.会員ID) + '">' + esc(c.表示名) + '（残り' + esc(c.残り回数) + '）</option>').join('');
   $('pendingList').innerHTML = r.pending.map(p => '<div style="padding:8px 0;border-top:1px solid #ddd"><b>' + esc(p.表示名) + '</b><div class="sub">' + esc(p.備考) + '</div>'
-    + '<select data-id="' + esc(p.会員ID) + '" style="width:100%;font-size:16px;padding:8px;margin:6px 0">' + options + '</select>'
-    + '<button class="btn sec" data-approve="' + esc(p.会員ID) + '">承認する</button></div>').join('');
+    + '<select data-id="' + esc(p.会員ID) + '">' + options + '</select>'
+    + '<button class="btn sec sm" data-approve="' + esc(p.会員ID) + '">承認する</button></div>').join('');
   $('pendingList').querySelectorAll('[data-approve]').forEach(b => b.onclick = async () => {
     const sel = $('pendingList').querySelector('select[data-id="' + b.dataset.approve + '"]');
     const link = sel.value;
@@ -1613,9 +1814,23 @@ async function loadSessions() {
   });
 }
 
+async function loadMembers() {
+  const r = await KickApi.call('admin.members');
+  if (!r.ok) return msg(r.message, true);
+  $('memberRows').innerHTML = r.list.map(m => '<tr><td>' + esc(m.表示名) + (m.locked ? ' 🔒' : '') + '</td><td>' + esc(m.区分) + '</td><td>' + esc(m.状態) + '</td><td>' + esc(m.残り回数) + '</td><td>'
+    + '<button data-reset="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">番号リセット</button></td></tr>').join('');
+  $('memberRows').querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
+    const pin = prompt(b.dataset.name + ' の新しい暗証番号（4桁）を入力');
+    if (pin === null) return;
+    const rr = await KickApi.call('admin.resetPin', { 会員ID: b.dataset.reset, pin });
+    msg(rr.message, !rr.ok); loadMembers();
+  });
+}
+
 $('btnTodayReload').onclick = loadToday;
 $('btnPendingReload').onclick = loadPending;
 $('btnSessionsReload').onclick = loadSessions;
+$('btnMembersReload').onclick = loadMembers;
 $('btnAddSession').onclick = async () => {
   const slot = document.querySelector('input[name=slot]:checked').value;
   const r = await KickApi.call('admin.upsertSession', { 日付: $('sDate').value.trim(), 時間帯: slot, 会場: $('sPlace').value.trim(), 状態: '予定' });
@@ -1624,14 +1839,12 @@ $('btnAddSession').onclick = async () => {
 };
 
 (async () => {
-  try {
-    if (!(await KickApi.init())) return;
-    const me = await KickApi.call('me');
-    if (!me.ok || !me.isAdmin) { $('gate').textContent = '管理者だけが開けます'; return; }
-    $('gate').classList.add('hidden'); $('app').classList.remove('hidden');
-    $('sMonth').value = new Date().toISOString().slice(0, 7);
-    loadToday();
-  } catch (e) { $('gate').textContent = 'LINEの起動に失敗しました'; }
+  if (!KickApi.token()) { $('gate').innerHTML = '先に <a href="checkin.html">受付画面</a> でログインしてください'; return; }
+  const me = await KickApi.call('me');
+  if (!me.ok || !me.isAdmin) { $('gate').textContent = me.needLogin ? '先に受付画面でログインしてください' : '管理者だけが開けます'; return; }
+  $('gate').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('sMonth').value = new Date().toISOString().slice(0, 7);
+  loadToday();
 })();
 </script>
 </body>
@@ -1649,56 +1862,62 @@ Expected: `syntax ok`
 
 ```bash
 git add v2/admin.html
-git commit -m "v2 MVP-1: 管理画面（今日・承認待ち・開催）"
+git commit -m "v2 MVP-1: 管理画面（今日・承認待ち・開催・会員）"
 ```
 
 ---
 
-## Task 10: 公開と実機確認（push は耕平さんの承認後）
+## Task 11: 公開と実機確認（push は耕平さんの承認後）
 
 **Files:**
 - Modify: `README.md`（v2 の URL と構成を追記）
 
-- [ ] **Step 1: README に追記**
+- [ ] **Step 1: config.js に GAS URL を入れる**
+
+Task 8 Step 4 で控えたウェブアプリの URL を `v2/config.js` の `GAS_URL` に入れる。
+
+- [ ] **Step 2: README に追記**
 
 `README.md` の末尾に：
 ```markdown
 
-## v2（LINEログイン＋会場QR受付）2026-09-17〜
+## v2（ブラウザ＋会場QR受付）2026-09-17〜
 
-- 会員画面: https://kohei0306.github.io/kickboxing-app/v2/checkin.html （LIFF から開く）
+- 会員画面: https://kohei0306.github.io/kickboxing-app/v2/checkin.html （会場の紙QRはこのURL）
 - 管理画面: https://kohei0306.github.io/kickboxing-app/v2/admin.html
-- GAS: `gas/`（clasp push）。秘密はスクリプトプロパティ `SHEET_ID` / `LINE_CHANNEL_ID`
+- GAS: `gas/`（clasp push・asahiya.kk）。秘密はスクリプトプロパティ `SHEET_ID` / `PIN_PEPPER`
 - テスト: `npm.cmd test`
-- 仕様: `docs/spec-v2-line-checkin-2026-09-14.md`（v2.1）
+- 仕様: `docs/spec-v2-line-checkin-2026-09-14.md`（v2.2）
 - 旧アプリ `index.html` は移行完了まで並走
 ```
 
-- [ ] **Step 2: 耕平さんに push の承認を取る**
+- [ ] **Step 3: 耕平さんに push の承認を取る**
 
 「`main` に push すると GitHub Pages で v2 が公開されます（旧 index.html はそのまま）。push してよいですか？」→ OK をもらってから：
 ```bash
 git push origin main
 ```
 
-- [ ] **Step 3: 実機確認（耕平さんのスマホ）**
+- [ ] **Step 4: 実機確認（耕平さんのスマホ）**
 
-1. LINE Developers の LIFF の URL（`https://liff.line.me/<LIFF ID>`）を QR にして（https://developers.line.biz の LIFF 画面に QR がある）スマホで読む
-2. 「倶楽部での名前」に「ミヤさん」→［登録する］→ 承認待ち画面
-3. 管理画面 `admin.html` は**管理者しか開けない**ので、先に新シート「会員」タブで、いま追加された承認待ちの行（M3）の `LINE userId` を Task 7 Step 4 の M2 行にコピーし、M3 行の状態を「退会」にする（初回だけ手作業。以降は管理画面の「既存の◯◯に紐づけ」で同じことができる）
+1. `https://kohei0306.github.io/kickboxing-app/v2/checkin.html` を QR にして（無料の QR 生成サイトで可）スマホで読む
+2. 「はじめての方」に名前「ミヤさん」・暗証番号4桁 →［登録する］→ 承認待ち画面
+3. **管理者の初回だけ手作業**：新シート「会員」タブで、いま追加された行（M2）の `管理者` を `TRUE`、`状態` を `有効`、`区分` を `運営会員`、`入会日` を `2023-09-02` にする
 4. 受付画面を「更新」→ 通常画面。「管理画面を開く」リンクが出る
 5. 管理画面「開催」で今日の日付を登録 → 第94回 と表示される
-6. 受付画面で［出席する］→ 残り0なので「都度参加 1,200円／5回券を買う 3,980円」→ 都度 → 「受付しました。本日 1,200 円をお支払いください」
-7. もう一度［出席する］が消えて「本日は受付済みです」。管理画面「今日」に1行、合計 1,200 円
-8. 新シートの出席タブに1行、会員タブの残り回数 0・入会日は変わらない（2023-09-02 のまま）
-9. 別の LINE アカウント（家族など）で 2〜4 を試し、承認待ち → 管理画面で「新規会員として承認」→ 出席 → 体験 500 円 → 会員タブの入会日が今日になる
+6. 受付画面で［出席する］→ 残り0なので「今日は都度参加 1,200円／5回券を買う 3,980円」→ 都度 → 「受付しました。本日 1,200 円をお支払いください」
+7. もう一度開くと［出席する］が消えて「本日は受付済みです」。管理画面「今日」に1行、合計 1,200 円
+8. 新シートの出席タブに1行、会員タブの残り回数 0・入会日は 2023-09-02 のまま
+9. 設定の「この端末からログアウト」→ ログイン画面 → 名前＋暗証番号でログイン → 元の画面に戻る
+10. 家族のスマホなどで 2 を試し（別の名前）、管理画面「承認待ち」→「新規会員として承認」→ 出席 → 体験 500 円 → 会員タブの入会日が今日になる
+11. 管理画面「会員」でその人の「番号リセット」→ その人のスマホを「更新」するとログイン画面に戻る → 新しい番号でログインできる
 
-- [ ] **Step 4: 確認結果を仕様書の変更履歴に1行残してコミット**
+- [ ] **Step 5: 確認結果を仕様書の変更履歴に1行残してコミット**
 
 `docs/spec-v2-line-checkin-2026-09-14.md` の変更履歴に
-`| v2.1 | 2026-MM-DD | MVP-1 実機確認済み（会員登録・承認・開催登録・都度／体験の出席） |` を追記。
+`| v2.2 | 2026-MM-DD | MVP-1 実機確認済み（登録・承認・開催登録・都度／体験の出席・番号リセット） |` を追記。
 ```bash
-git add README.md docs/spec-v2-line-checkin-2026-09-14.md
+git add README.md v2/config.js docs/spec-v2-line-checkin-2026-09-14.md
 git commit -m "v2 MVP-1: 公開URLと実機確認の記録"
 ```
 （この commit の push も承認を取る）
@@ -1711,26 +1930,31 @@ git commit -m "v2 MVP-1: 公開URLと実機確認の記録"
 
 | 仕様 | Task |
 |---|---|
-| §2-2 即時確定・券消化 | 4, 7 |
-| §2-3/4 LINEログイン・あだ名入力 | 7（register）, 8 |
-| §2-5 承認待ち・既存紐づけ | 7（admin.approve）, 9 |
+| §2-2 即時確定・券消化 | 4, 8 |
+| §2-3 名前＋暗証番号・端末が記憶 | 6, 8（register/login）, 9（localStorage） |
+| §2-4 あだ名入力・同名不可 | 6（findByName）, 8 |
+| §2-5 承認待ち・既存紐づけ | 8（admin.approve）, 10 |
 | §2-8 免除区分（判定のみ。付け外しは MVP-2） | 4 |
-| §2-9 固定QR・開催日のみ受付 | 3, 7 |
-| §2-10 今日の出席人数・表示名 | 7（me）, 8 |
-| §2-16 通算番号・第94回から | 3, 6（設定）, 7 |
-| §2-17 都度・体験も金額付きで記録 | 4, 7 |
-| §2-18 本人に金額を見せない | 7（me の history は種別のみ）, 8 |
-| §2-19 参加率・入会日＝初回出席日 | 5, 7 |
-| §5 タブ構成 | 6 |
-| §6 冪等・LockService | 7 |
+| §2-9 固定QR・開催日のみ受付 | 3, 8 |
+| §2-10 今日の出席人数・表示名 | 8（me）, 9 |
+| §2-16 通算番号・第94回から | 3, 7（設定）, 8 |
+| §2-17 都度・体験も金額付きで記録 | 4, 8 |
+| §2-18 本人に金額を見せない | 8（me の history は種別のみ）, 9 |
+| §2-19 参加率・入会日＝初回出席日 | 5, 8 |
+| §2-20 番号リセット・名前検索 | 8（admin.resetPin / admin.members）, 10 |
+| §2-21 アサヒ屋アカウント | 0 |
+| §5 タブ構成（会員 12列） | 7 |
+| §6 冪等・LockService・login/register/changePin | 8 |
 | §7 判定 | 4 |
-| §8.1 会員画面 | 8 |
-| §8.2 今日／承認待ち／開催 | 9 |
-| §10 セキュリティ | 7, 8（config に公開値のみ） |
-| §8.2 取消・代打ち・券付与・未収・料金・会員・入金・集計 | **MVP-2（別計画）** |
+| §8.1 会員画面（ログイン・設定にログアウト） | 9 |
+| §8.2 今日／承認待ち／開催／会員（リセットのみ） | 10 |
+| §10 セキュリティ（ハッシュ・ロック・トークン） | 6, 8, 9（config に公開値のみ） |
+| §8.2 取消・代打ち・券付与・未収・料金・区分変更・入金・集計 | **MVP-2（別計画）** |
 | §9 移行 | **MVP-3（別計画）** |
 
 **既知の割り切り**
-- 管理者の初回紐づけだけ手作業（Task 10 Step 3）。管理画面が管理者にしか開けないため
-- `Repo.nextId` は「行数」ベース。行を手で削除すると ID が重複しうる → **行は削除せず状態で無効化する**運用（仕様書 §5 の追記方針と同じ）
+- 管理者の初回だけシートを直接編集（Task 11 Step 4-3）。管理画面が管理者にしか開けないため
+- `Repo.nextId` は「行番号」ベース。行を手で削除すると ID が重複しうる → **行は削除せず状態で無効化する**運用
 - 参加率の分母は「入会日 ≤ 日付 ≤ 今日」（Task 1 で仕様書を揃える）
+- 暗証番号のハッシュは全員共通の pepper＋番号（Task 8 Step 1 で仕様書を揃える）。同じ番号の2人は同じハッシュになるが、シートを見られる人＝管理者だけなので許容
+- `login` はトークンを1人1つで使い回す（複数端末で同じ合鍵）。番号リセットで全端末が同時に無効になる仕様（§5.1 D列）と整合
