@@ -3,6 +3,6 @@
   "private": true,
   "description": "佐世保キックボクシング倶楽部 参加管理アプリ v2（GAS＋ブラウザ）",
   "scripts": {
-    "test": "node --test tests/"
+    "test": "node --test"
   }
 }
