@@ -13,16 +13,21 @@ var HEADERS = {
 var ID_PREFIX = { '会員': 'M', '出席': 'A', '購入': 'P', '開催': 'K' };
 
 var Repo = (function () {
+  var _ss = null;
+  var _sheets = {};
+
   function ss() {
+    if (_ss) return _ss;
     var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
     if (!id) throw new Error('SHEET_ID が未設定');
-    return SpreadsheetApp.openById(id);
+    return (_ss = SpreadsheetApp.openById(id));
   }
 
   function sheet(tab) {
+    if (_sheets[tab]) return _sheets[tab];
     var sh = ss().getSheetByName(tab);
     if (!sh) throw new Error('タブが無い: ' + tab);
-    return sh;
+    return (_sheets[tab] = sh);
   }
 
   function readAll(tab) {

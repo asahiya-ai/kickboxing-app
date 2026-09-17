@@ -23,6 +23,7 @@
       <div id="todayHead" class="sub"></div>
       <table><thead><tr><th>時刻</th><th>名前</th><th>種別</th><th>金額</th></tr></thead><tbody id="todayRows"></tbody></table>
       <p><b>本日の受け取り合計：<span id="cashTotal">0</span> 円</b></p>
+      <p>未収合計：<span id="unpaidTotal">0</span> 円</p>
       <button class="btn sec sm" id="btnTodayReload">更新</button>
     </div>
 
@@ -69,8 +70,9 @@ async function loadToday() {
   const r = await KickApi.call('admin.today');
   if (!r.ok) return msg(r.message, true);
   $('todayHead').textContent = r.session ? '第' + r.session.通算番号 + '回 ' + r.session.日付 + '（' + r.session.時間帯 + '）' + (r.session.会場 || '') : '今日の開催はありません';
-  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(String(a.日時).slice(11, 16)) + '</td><td>' + esc(a.表示名) + '</td><td>' + esc(a.支払い種別) + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">まだ出席がありません</td></tr>';
+  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(String(a.日時).slice(11, 16)) + '</td><td>' + esc(a.表示名) + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + '</td><td>' + esc(a.支払い種別) + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">まだ出席がありません</td></tr>';
   $('cashTotal').textContent = r.cashTotal.toLocaleString();
+  $('unpaidTotal').textContent = (r.unpaidTotal || 0).toLocaleString();
 }
 
 async function loadPending() {

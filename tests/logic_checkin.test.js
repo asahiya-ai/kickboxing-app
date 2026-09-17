@@ -93,6 +93,13 @@ test('今日入会は購入（未収）＋入会・消化なし・残り5', () =
   assert.equal(r.setJoinDate, true);
 });
 
+test('料金表が欠けていれば拒否（未収発生前に止める）', () => {
+  const brokenPrices = { trial: prices.trial, ticket5: prices.ticket5, ticket5_staff: prices.ticket5_staff };
+  const r = decideCheckin({ member: member({ 残り回数: 0 }), session, alreadyAttended: false, prices: brokenPrices, choice: null });
+  assert.equal(r.ok, false);
+  assert.match(r.message, /料金表/);
+});
+
 test('初回でも残りがあれば（管理者が先に券を付与）券を消化し入会日もセット', () => {
   const r = decideCheckin({ member: member({ 入会日: '', 残り回数: 5 }), session, alreadyAttended: false, prices, choice: null });
   assert.equal(r.attendance.支払い種別, '券');

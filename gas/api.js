@@ -25,7 +25,7 @@ function handleRequest(body) {
   var action = String(body.action || '');
   var members = Repo.readAll('会員');
 
-  if (action === 'register') return actionRegister(members, body);
+  if (action === 'register') return actionRegister(body);
   if (action === 'login') return actionLogin(members, body);
 
   var me = memberByToken(members, body.token);
@@ -46,7 +46,7 @@ function handleRequest(body) {
 
 // ---------- 登録・ログイン ----------
 
-function actionRegister(members, body) {
+function actionRegister(body) {
   var v = validateName(body.name);
   if (!v.ok) return v;
   var p = validatePin(body.pin);
@@ -60,7 +60,7 @@ function actionRegister(members, body) {
     var token = newToken();
     Repo.append('会員', {
       会員ID: Repo.nextId('会員'), 表示名: v.name, 暗証番号ハッシュ: hashPin(body.pin), トークン: token,
-      区分: '一般', 管理者: false, 状態: '承認待ち', 残り回数: 0, 入会日: '', 承認日時: '', ログイン失敗: 0, 備考: '',
+      区分: '一般', 管理者: false, 状態: '承認待ち', 残り回数: 0, 入会日: '', 承認日時: '', ログイン失敗: 0, 備考: '申請 ' + formatDateTime(new Date()),
     });
     return { ok: true, token: token, status: '承認待ち', message: '登録しました。管理者の承認をお待ちください' };
   } finally {
@@ -132,7 +132,8 @@ function actionMe(me) {
     stats: stats,
     attendedToday: ctx.todays.some(function (a) { return a.会員ID === me.会員ID; }),
     history: history,
-    today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯, count: ctx.todays.length, names: ctx.todays.map(function (a) { return a.表示名; }) } : null,
+    today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯,
+      count: me.状態 === '有効' ? ctx.todays.length : 0, names: me.状態 === '有効' ? ctx.todays.map(function (a) { return a.表示名; }) : [] } : null,
     next: nextSessionAfter(ctx.sessions, ctx.todayStr),
   };
 }
@@ -201,13 +202,21 @@ function handleAdmin(action, body, admin) {
 
 function adminToday() {
   var ctx = todayContext();
+  var purchases = Repo.readAll('購入');
+  var unpaidByMember = {};
+  purchases.forEach(function (p) {
+    if (p.入金 === '未収') unpaidByMember[p.会員ID] = (unpaidByMember[p.会員ID] || 0) + (Number(p.金額) || 0);
+  });
+  var unpaidTotal = 0;
+  Object.keys(unpaidByMember).forEach(function (id) { unpaidTotal += unpaidByMember[id]; });
   return {
     ok: true,
     session: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 日付: ctx.session.日付, 時間帯: ctx.session.時間帯, 会場: ctx.session.会場 } : null,
     list: ctx.todays.map(function (a) {
-      return { 出席ID: a.出席ID, 日時: a.日時, 表示名: a.表示名, 支払い種別: a.支払い種別, 金額: a.金額, 記録方法: a.記録方法 };
+      return { 出席ID: a.出席ID, 日時: a.日時, 表示名: a.表示名, 支払い種別: a.支払い種別, 金額: a.金額, 記録方法: a.記録方法, unpaid: unpaidByMember[a.会員ID] || 0 };
     }),
     cashTotal: ctx.todays.reduce(function (sum, a) { return sum + (Number(a.金額) || 0); }, 0),
+    unpaidTotal: unpaidTotal,
   };
 }
 
@@ -236,7 +245,9 @@ function adminApprove(body, admin) {
     if (!target) return { ok: false, message: '紐づけ先が見つかりません' };
     if (target.状態 !== '有効') return { ok: false, message: '紐づけ先は「有効」の会員だけ選べます' };
     if (target.トークン) return { ok: false, message: 'その会員はすでに端末と紐づいています' };
-    Repo.update('会員', target._row, { 表示名: pending.表示名, 暗証番号ハッシュ: pending.暗証番号ハッシュ, トークン: pending.トークン, ログイン失敗: 0, 承認日時: nowStr });
+    var targetPatch = { 表示名: pending.表示名, 暗証番号ハッシュ: pending.暗証番号ハッシュ, トークン: pending.トークン, ログイン失敗: 0, 承認日時: nowStr };
+    if (target.表示名 !== pending.表示名) targetPatch.備考 = (target.備考 || '') + ' / 旧表示名: ' + target.表示名;
+    Repo.update('会員', target._row, targetPatch);
     Repo.update('会員', pending._row, { 暗証番号ハッシュ: '', トークン: '', 状態: '退会', 備考: (pending.備考 || '') + ' / ' + target.会員ID + ' に統合 by ' + admin.会員ID });
     return { ok: true, message: pending.表示名 + ' を ' + target.表示名 + ' に紐づけました' };
   }

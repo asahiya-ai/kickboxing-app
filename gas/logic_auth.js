@@ -4,6 +4,7 @@ var LOCK_LIMIT = 10;
 
 function normalizeName(s) {
   return String(s === undefined || s === null ? '' : s)
+    .normalize('NFKC')
     .replace(/　/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -13,6 +14,7 @@ function validateName(s) {
   var name = normalizeName(s);
   if (!name) return { ok: false, message: '倶楽部での名前を入力してください' };
   if (name.length > 20) return { ok: false, message: '名前は20文字までです' };
+  if (['=', '+', '-', '@'].indexOf(name.charAt(0)) >= 0) return { ok: false, message: '名前の先頭に記号は使えません' };
   return { ok: true, name: name };
 }
 

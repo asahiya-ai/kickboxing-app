@@ -26,6 +26,12 @@ function decideCheckin(input) {
     return { ok: false, message: '本日は受付済みです' };
   }
 
+  var p = input.prices || {};
+  var need = ['trial', 'drop_in', m.区分 === '運営会員' ? 'ticket5_staff' : 'ticket5'];
+  for (var i = 0; i < need.length; i++) {
+    if (!p[need[i]]) return { ok: false, message: '料金表の設定が足りません。管理者に連絡してください' };
+  }
+
   var base = { purchase: null, setJoinDate: isFirst };
 
   if (m.区分 === '免除') {
