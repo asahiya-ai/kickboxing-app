@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理 | 佐世保キックボクシング倶楽部</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>管理画面 <a href="checkin.html" class="sub" style="float:right">受付へ</a></h1>
+  <div id="msg" class="msg hidden"></div>
+  <div id="gate" class="card">確認中…</div>
+  <div id="app" class="hidden">
+    <div class="tabs">
+      <button data-tab="today" class="on">今日</button>
+      <button data-tab="pending">承認待ち</button>
+      <button data-tab="sessions">開催</button>
+      <button data-tab="members">会員</button>
+    </div>
+
+    <div id="t-today" class="card">
+      <div id="todayHead" class="sub"></div>
+      <table><thead><tr><th>時刻</th><th>名前</th><th>種別</th><th>金額</th></tr></thead><tbody id="todayRows"></tbody></table>
+      <p><b>本日の受け取り合計：<span id="cashTotal">0</span> 円</b></p>
+      <button class="btn sec sm" id="btnTodayReload">更新</button>
+    </div>
+
+    <div id="t-pending" class="card hidden">
+      <div id="pendingList"></div>
+      <button class="btn sec sm" id="btnPendingReload">更新</button>
+    </div>
+
+    <div id="t-sessions" class="card hidden">
+      <p class="sub">開催を登録します（通算番号は自動）</p>
+      <input type="text" id="sDate" placeholder="日付 2026-09-20">
+      <div style="margin:8px 0">
+        <label><input type="radio" name="slot" value="昼" checked> 昼</label>
+        <label style="margin-left:16px"><input type="radio" name="slot" value="夜"> 夜</label>
+      </div>
+      <input type="text" id="sPlace" placeholder="会場（任意）">
+      <button class="btn" id="btnAddSession" style="margin-top:8px">登録</button>
+      <p class="sub" style="margin-top:16px">月：<input type="text" id="sMonth" placeholder="2026-09" style="width:120px"> <button id="btnSessionsReload">表示</button></p>
+      <table><thead><tr><th>第</th><th>日付</th><th>昼夜</th><th>状態</th><th>人数</th><th></th></tr></thead><tbody id="sessionRows"></tbody></table>
+    </div>
+
+    <div id="t-members" class="card hidden">
+      <p class="sub">暗証番号を忘れた人は「番号リセット」→ 新しい4桁を伝えてください（その人の全端末がログアウトします）</p>
+      <table><thead><tr><th>名前</th><th>区分</th><th>状態</th><th>残り</th><th></th></tr></thead><tbody id="memberRows"></tbody></table>
+      <button class="btn sec sm" id="btnMembersReload">更新</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  ['today', 'pending', 'sessions', 'members'].forEach(t => $('t-' + t).classList.toggle('hidden', t !== b.dataset.tab));
+  ({ today: loadToday, pending: loadPending, sessions: loadSessions, members: loadMembers })[b.dataset.tab]();
+});
+
+async function loadToday() {
+  const r = await KickApi.call('admin.today');
+  if (!r.ok) return msg(r.message, true);
+  $('todayHead').textContent = r.session ? '第' + r.session.通算番号 + '回 ' + r.session.日付 + '（' + r.session.時間帯 + '）' + (r.session.会場 || '') : '今日の開催はありません';
+  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(String(a.日時).slice(11, 16)) + '</td><td>' + esc(a.表示名) + '</td><td>' + esc(a.支払い種別) + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">まだ出席がありません</td></tr>';
+  $('cashTotal').textContent = r.cashTotal.toLocaleString();
+}
+
+async function loadPending() {
+  const r = await KickApi.call('admin.pending');
+  if (!r.ok) return msg(r.message, true);
+  if (!r.pending.length) { $('pendingList').innerHTML = '<p class="sub">承認待ちはありません</p>'; return; }
+  const options = '<option value="">（新規会員として承認）</option>' + r.candidates.map(c => '<option value="' + esc(c.会員ID) + '">' + esc(c.表示名) + '（残り' + esc(c.残り回数) + '）</option>').join('');
+  $('pendingList').innerHTML = r.pending.map(p => '<div style="padding:8px 0;border-top:1px solid #ddd"><b>' + esc(p.表示名) + '</b><div class="sub">' + esc(p.備考) + '</div>'
+    + '<select data-id="' + esc(p.会員ID) + '">' + options + '</select>'
+    + '<button class="btn sec sm" data-approve="' + esc(p.会員ID) + '">承認する</button></div>').join('');
+  $('pendingList').querySelectorAll('[data-approve]').forEach(b => b.onclick = async () => {
+    const sel = $('pendingList').querySelector('select[data-id="' + b.dataset.approve + '"]');
+    const link = sel.value;
+    if (!confirm(link ? '既存の会員に紐づけます。よろしいですか？' : '新規会員として承認します。よろしいですか？')) return;
+    const rr = await KickApi.call('admin.approve', { pendingMemberId: b.dataset.approve, linkToMemberId: link || undefined });
+    msg(rr.message, !rr.ok); loadPending();
+  });
+}
+
+async function loadSessions() {
+  const r = await KickApi.call('admin.sessions', { month: $('sMonth').value.trim() || undefined });
+  if (!r.ok) return msg(r.message, true);
+  $('sessionRows').innerHTML = r.list.map(s => '<tr><td>' + esc(s.通算番号) + '</td><td>' + esc(s.日付) + '</td><td>' + esc(s.時間帯) + '</td><td>' + esc(s.状態) + '</td><td>' + esc(s.出席人数) + '</td><td>'
+    + (s.状態 !== '中止' ? '<button data-cancel="' + esc(s.開催ID) + '" data-date="' + esc(s.日付) + '" data-slot="' + esc(s.時間帯) + '" data-place="' + esc(s.会場) + '">中止</button>' : '') + '</td></tr>').join('');
+  $('sessionRows').querySelectorAll('[data-cancel]').forEach(b => b.onclick = async () => {
+    if (!confirm(b.dataset.date + ' ' + b.dataset.slot + ' を中止にしますか？')) return;
+    const rr = await KickApi.call('admin.upsertSession', { 開催ID: b.dataset.cancel, 日付: b.dataset.date, 時間帯: b.dataset.slot, 会場: b.dataset.place, 状態: '中止' });
+    msg(rr.ok ? '中止にしました' : rr.message, !rr.ok); loadSessions();
+  });
+}
+
+async function loadMembers() {
+  const r = await KickApi.call('admin.members');
+  if (!r.ok) return msg(r.message, true);
+  $('memberRows').innerHTML = r.list.map(m => '<tr><td>' + esc(m.表示名) + (m.locked ? ' 🔒' : '') + '</td><td>' + esc(m.区分) + '</td><td>' + esc(m.状態) + '</td><td>' + esc(m.残り回数) + '</td><td>'
+    + '<button data-reset="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">番号リセット</button></td></tr>').join('');
+  $('memberRows').querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
+    const pin = prompt(b.dataset.name + ' の新しい暗証番号（4桁）を入力');
+    if (pin === null) return;
+    const rr = await KickApi.call('admin.resetPin', { 会員ID: b.dataset.reset, pin });
+    msg(rr.message, !rr.ok); loadMembers();
+  });
+}
+
+$('btnTodayReload').onclick = loadToday;
+$('btnPendingReload').onclick = loadPending;
+$('btnSessionsReload').onclick = loadSessions;
+$('btnMembersReload').onclick = loadMembers;
+$('btnAddSession').onclick = async () => {
+  const slot = document.querySelector('input[name=slot]:checked').value;
+  const r = await KickApi.call('admin.upsertSession', { 日付: $('sDate').value.trim(), 時間帯: slot, 会場: $('sPlace').value.trim(), 状態: '予定' });
+  msg(r.ok ? '登録しました' : r.message, !r.ok);
+  if (r.ok) { $('sMonth').value = $('sDate').value.trim().slice(0, 7); loadSessions(); }
+};
+
+(async () => {
+  if (!KickApi.token()) { $('gate').innerHTML = '先に <a href="checkin.html">受付画面</a> でログインしてください'; return; }
+  const me = await KickApi.call('me');
+  if (!me.ok || !me.isAdmin) { $('gate').textContent = me.needLogin ? '先に受付画面でログインしてください' : '管理者だけが開けます'; return; }
+  $('gate').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('sMonth').value = new Date().toISOString().slice(0, 7);
+  loadToday();
+})();
+</script>
+</body>
+</html>
