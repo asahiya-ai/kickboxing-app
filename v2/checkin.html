@@ -126,6 +126,7 @@ async function checkin(choice) {
     $('btnCheckin').disabled = false; $('btnCheckin').textContent = '出席する';
   }
   if (r.needChoice) {
+    msg('');
     $('choices').innerHTML = r.options.map(o => '<button class="btn sec" data-key="' + o.key + '">' + esc(o.label) + ' ' + o.amount.toLocaleString() + '円</button>').join('');
     $('choices').classList.remove('hidden');
     $('choices').querySelectorAll('button').forEach(b => b.onclick = () => checkin(b.dataset.key));
@@ -133,12 +134,12 @@ async function checkin(choice) {
   }
   $('choices').classList.add('hidden');
   if (!r.ok) { msg(r.message, true); await load(); return; }
-  let text = '受付しました。';
-  if (r.type === '券') text += ' 残り ' + r.remaining + ' 回';
-  if (r.remaining === 1) text += '。次の券をご用意ください';
-  if (r.amount > 0) text += '。本日 ' + r.amount.toLocaleString() + ' 円をお支払いください';
-  if (r.unpaid > 0) text += '。回数券のお支払い（' + r.unpaid.toLocaleString() + '円）は管理者へ';
-  msg(text, false);
+  const parts = ['受付しました'];
+  if (r.type === '券') parts.push('残り ' + r.remaining + ' 回');
+  if (r.remaining === 1) parts.push('次の券をご用意ください');
+  if (r.amount > 0) parts.push('本日 ' + r.amount.toLocaleString() + ' 円をお支払いください');
+  if (r.unpaid > 0) parts.push('回数券のお支払い（' + r.unpaid.toLocaleString() + '円）は管理者へ');
+  msg(parts.join('。') + '。', false);
   await load();
 }
 

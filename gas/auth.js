@@ -20,5 +20,5 @@ function memberByToken(members, token) {
 }
 
 function isAdminMember(m) {
-  return !!m && (m.管理者 === true || m.管理者 === 'TRUE');
+  return !!m && isTrueFlag(m.管理者);
 }

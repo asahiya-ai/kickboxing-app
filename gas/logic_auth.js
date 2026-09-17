@@ -31,8 +31,13 @@ function findByName(members, name) {
   return null;
 }
 
+// シートのフラグ列は TRUE / true / "TRUE" のどれでも来る（テキスト書式の列に書くと文字列になる）
+function isTrueFlag(v) {
+  return v === true || String(v === undefined || v === null ? '' : v).trim().toUpperCase() === 'TRUE';
+}
+
 function isLocked(failCount) {
   return (Number(failCount) || 0) >= LOCK_LIMIT;
 }
 
-if (typeof module !== 'undefined') module.exports = { normalizeName, validateName, validatePin, findByName, isLocked, LOCK_LIMIT };
+if (typeof module !== 'undefined') module.exports = { normalizeName, validateName, validatePin, findByName, isLocked, isTrueFlag, LOCK_LIMIT };

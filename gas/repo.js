@@ -43,9 +43,13 @@ var Repo = (function () {
     return rows;
   }
 
-  // Date型で返ってきたら YYYY-MM-DD にそろえる（列書式が崩れた保険）
+  // Date型で返ってきたら文字列にそろえる（appendRow は書式を無視して Date にすることがある）。
+  // 時刻が 00:00:00 なら日付だけ、それ以外は日時として返す
   function normalize(v) {
-    if (v instanceof Date) return formatDate(v);
+    if (v instanceof Date) {
+      var hasTime = v.getHours() || v.getMinutes() || v.getSeconds();
+      return hasTime ? formatDateTime(v) : formatDate(v);
+    }
     return v === undefined || v === null ? '' : v;
   }
 
@@ -81,7 +85,7 @@ var Repo = (function () {
   function prices() {
     var out = {};
     readAll('料金').forEach(function (r) {
-      if (r.有効 === true || r.有効 === 'TRUE') {
+      if (isTrueFlag(r.有効)) {
         out[r.種別コード] = { 表示名: r.表示名, 金額: Number(r.金額), 付与回数: Number(r.付与回数) || 0 };
       }
     });

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeName, validateName, validatePin, findByName, isLocked } = require('../gas/logic_auth.js');
+const { normalizeName, validateName, validatePin, findByName, isLocked, isTrueFlag } = require('../gas/logic_auth.js');
 
 test('normalizeName は前後空白・全角空白・連続空白を整える', () => {
   assert.equal(normalizeName('  のぶさん　（最強生物） '), 'のぶさん （最強生物）');
@@ -47,4 +47,15 @@ test('isLocked は10回以上で true', () => {
   assert.equal(isLocked(9), false);
   assert.equal(isLocked(10), true);
   assert.equal(isLocked(''), false);
+});
+
+test('isTrueFlag は true / TRUE / true（文字列）を真、それ以外を偽', () => {
+  assert.equal(isTrueFlag(true), true);
+  assert.equal(isTrueFlag('TRUE'), true);
+  assert.equal(isTrueFlag('true'), true);
+  assert.equal(isTrueFlag(' True '), true);
+  assert.equal(isTrueFlag(false), false);
+  assert.equal(isTrueFlag('FALSE'), false);
+  assert.equal(isTrueFlag(''), false);
+  assert.equal(isTrueFlag(undefined), false);
 });
