@@ -51,13 +51,21 @@ function actionRegister(members, body) {
   if (!v.ok) return v;
   var p = validatePin(body.pin);
   if (!p.ok) return p;
-  if (findByName(members, v.name)) return { ok: false, message: 'その名前はすでに使われています。少し変えて登録してください（例：のぶさん（最強生物））' };
-  var token = newToken();
-  Repo.append('会員', {
-    会員ID: Repo.nextId('会員'), 表示名: v.name, 暗証番号ハッシュ: hashPin(body.pin), トークン: token,
-    区分: '一般', 管理者: false, 状態: '承認待ち', 残り回数: 0, 入会日: '', 承認日時: '', ログイン失敗: 0, 備考: '',
-  });
-  return { ok: true, token: token, status: '承認待ち', message: '登録しました。管理者の承認をお待ちください' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    // ロック内で読み直す（同時登録で同じ会員IDが振られるのを防ぐ）
+    var fresh = Repo.readAll('会員');
+    if (findByName(fresh, v.name)) return { ok: false, message: 'その名前はすでに使われています。少し変えて登録してください（例：のぶさん（最強生物））' };
+    var token = newToken();
+    Repo.append('会員', {
+      会員ID: Repo.nextId('会員'), 表示名: v.name, 暗証番号ハッシュ: hashPin(body.pin), トークン: token,
+      区分: '一般', 管理者: false, 状態: '承認待ち', 残り回数: 0, 入会日: '', 承認日時: '', ログイン失敗: 0, 備考: '',
+    });
+    return { ok: true, token: token, status: '承認待ち', message: '登録しました。管理者の承認をお待ちください' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function actionLogin(members, body) {
@@ -226,6 +234,7 @@ function adminApprove(body, admin) {
   if (body.linkToMemberId) {
     var target = members.filter(function (m) { return m.会員ID === body.linkToMemberId; })[0];
     if (!target) return { ok: false, message: '紐づけ先が見つかりません' };
+    if (target.状態 !== '有効') return { ok: false, message: '紐づけ先は「有効」の会員だけ選べます' };
     if (target.トークン) return { ok: false, message: 'その会員はすでに端末と紐づいています' };
     Repo.update('会員', target._row, { 表示名: pending.表示名, 暗証番号ハッシュ: pending.暗証番号ハッシュ, トークン: pending.トークン, ログイン失敗: 0, 承認日時: nowStr });
     Repo.update('会員', pending._row, { 暗証番号ハッシュ: '', トークン: '', 状態: '退会', 備考: (pending.備考 || '') + ' / ' + target.会員ID + ' に統合 by ' + admin.会員ID });

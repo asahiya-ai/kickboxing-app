@@ -119,8 +119,12 @@ function render(r) {
 
 async function checkin(choice) {
   $('btnCheckin').disabled = true; $('btnCheckin').textContent = '記録中…';
-  const r = await KickApi.call('checkin', { choice });
-  $('btnCheckin').disabled = false; $('btnCheckin').textContent = '出席する';
+  let r;
+  try {
+    r = await KickApi.call('checkin', { choice });
+  } finally {
+    $('btnCheckin').disabled = false; $('btnCheckin').textContent = '出席する';
+  }
   if (r.needChoice) {
     $('choices').innerHTML = r.options.map(o => '<button class="btn sec" data-key="' + o.key + '">' + esc(o.label) + ' ' + o.amount.toLocaleString() + '円</button>').join('');
     $('choices').classList.remove('hidden');

@@ -95,7 +95,9 @@ function setupSheets() {
     if (sh) return;
     sh = book.insertSheet(tab);
     sh.getRange(1, 1, 1, HEADERS[tab].length).setValues([HEADERS[tab]]).setFontWeight('bold');
-    sh.getRange(2, 1, 1000, HEADERS[tab].length).setNumberFormat('@'); // 書式なしテキスト
+    // シート全体（getMaxRows）に書式なしテキストを適用。
+    // getMaxRows を超えて appendRow で行が追加されたときは、シートの末尾行の書式（＝'@'）を Sheets が自動で引き継ぐ
+    sh.getRange(2, 1, sh.getMaxRows() - 1, HEADERS[tab].length).setNumberFormat('@');
     sh.setFrozenRows(1);
   });
   var price = book.getSheetByName('料金');

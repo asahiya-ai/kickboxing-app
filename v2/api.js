@@ -13,7 +13,12 @@ window.KickApi = {
       return { ok: false, message: '通信できませんでした。電波の良いところでもう一度お試しください' };
     }
     if (!res.ok) return { ok: false, message: '通信に失敗しました（' + res.status + '）' };
-    const json = await res.json();
+    let json;
+    try {
+      json = await res.json();
+    } catch (e) {
+      return { ok: false, message: 'サーバーの応答が読めませんでした。管理者に連絡してください' };
+    }
     if (json.needLogin) this.setToken('');
     return json;
   },
