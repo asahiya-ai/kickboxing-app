@@ -1,0 +1,24 @@
+:root { --main: #c62828; --bg: #fafafa; --ink: #222; --muted: #777; --line: #ddd; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: var(--bg); color: var(--ink); }
+.wrap { max-width: 480px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 18px; margin: 0 0 12px; }
+h2 { font-size: 16px; margin: 0 0 8px; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.big { font-size: 40px; font-weight: 700; line-height: 1.1; }
+.sub { color: var(--muted); font-size: 14px; }
+.btn { display: block; width: 100%; padding: 18px; font-size: 20px; font-weight: 700; color: #fff; background: var(--main); border: 0; border-radius: 12px; }
+.btn:disabled { background: #bbb; }
+.btn.sec { background: #fff; color: var(--main); border: 2px solid var(--main); margin-top: 8px; }
+.btn.sm { padding: 10px; font-size: 15px; }
+.list { padding: 0; margin: 8px 0 0; list-style: none; }
+.list li { padding: 8px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
+.msg { padding: 12px; border-radius: 8px; background: #fff3e0; margin-bottom: 12px; }
+.msg.err { background: #ffebee; }
+input[type=text], input[type=password], input[type=tel], select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.tabs button { flex: 1; padding: 10px; border: 1px solid var(--line); background: #fff; border-radius: 8px; }
+.tabs button.on { background: var(--main); color: #fff; border-color: var(--main); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+td, th { border-top: 1px solid var(--line); padding: 8px 4px; text-align: left; }
+.hidden { display: none; }

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>受付 | 佐世保キックボクシング倶楽部</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>佐世保キックボクシング倶楽部 受付</h1>
+  <div id="msg" class="msg hidden"></div>
+  <div id="loading" class="card">読み込み中…</div>
+
+  <!-- 合鍵なし：登録 or ログイン -->
+  <div id="v-login" class="hidden">
+    <div class="card">
+      <h2>登録済みの方</h2>
+      <input type="text" id="loginName" maxlength="20" placeholder="倶楽部での名前" autocomplete="username">
+      <input type="tel" id="loginPin" maxlength="4" inputmode="numeric" pattern="\d*" placeholder="暗証番号（4桁）" autocomplete="current-password">
+      <button class="btn" id="btnLogin" style="margin-top:12px">ログイン</button>
+    </div>
+    <div class="card">
+      <h2>はじめての方</h2>
+      <p class="sub">倶楽部での名前（あだ名）と、好きな4桁の暗証番号を決めてください。次回からはこのスマホが覚えます。</p>
+      <input type="text" id="regName" maxlength="20" placeholder="例：ミヤさん" autocomplete="off">
+      <input type="tel" id="regPin" maxlength="4" inputmode="numeric" pattern="\d*" placeholder="暗証番号（4桁）" autocomplete="new-password">
+      <button class="btn sec" id="btnRegister">登録する</button>
+    </div>
+  </div>
+
+  <!-- 承認待ち -->
+  <div id="v-pending" class="card hidden">
+    <p><b id="pendingName"></b> さん、登録ありがとうございます。</p>
+    <p>管理者の承認をお待ちください。承認されると出席できるようになります。</p>
+    <button class="btn sec" id="btnReload1">更新</button>
+    <button class="btn sec sm" id="btnLogout1">別の名前でログインする</button>
+  </div>
+
+  <!-- 通常 -->
+  <div id="v-main" class="hidden">
+    <div class="card">
+      <div class="sub" id="todayLabel"></div>
+      <div class="big" id="remaining"></div>
+      <div class="sub" id="statsLine"></div>
+    </div>
+    <div class="card" id="actionCard">
+      <button class="btn" id="btnCheckin">出席する</button>
+      <div id="choices" class="hidden"></div>
+      <div id="doneLine" class="hidden"></div>
+    </div>
+    <div class="card">
+      <b>今日の出席 <span id="todayCount">0</span>名</b>
+      <ul class="list" id="todayNames"></ul>
+    </div>
+    <div class="card">
+      <b>参加履歴</b>
+      <ul class="list" id="history"></ul>
+    </div>
+    <div class="card">
+      <b>設定</b>
+      <p class="sub">表示名：<span id="myName"></span></p>
+      <input type="text" id="newName" maxlength="20" placeholder="新しい表示名">
+      <button class="btn sec sm" id="btnRename">表示名を変更</button>
+      <p class="sub" style="margin-top:16px">暗証番号の変更</p>
+      <input type="tel" id="curPin" maxlength="4" inputmode="numeric" placeholder="現在の暗証番号">
+      <input type="tel" id="newPin" maxlength="4" inputmode="numeric" placeholder="新しい暗証番号（4桁）">
+      <button class="btn sec sm" id="btnChangePin">暗証番号を変更</button>
+      <button class="btn sec sm" id="btnLogout" style="margin-top:16px">この端末からログアウト</button>
+      <p class="sub hidden" id="adminLink"></p>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+
+function show(id) { ['loading', 'v-login', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
+function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+async function load() {
+  if (!KickApi.token()) { show('v-login'); return; }
+  const r = await KickApi.call('me');
+  if (r.needLogin) { show('v-login'); return; }
+  if (!r.ok) { msg(r.message, true); show('loading'); $('loading').textContent = '表示できませんでした'; return; }
+  if (r.status === '承認待ち') { $('pendingName').textContent = r.displayName; show('v-pending'); return; }
+  if (r.status !== '有効') { msg('現在は出席できません（' + r.status + '）。管理者にご確認ください', true); show('loading'); $('loading').textContent = ''; return; }
+  render(r);
+  show('v-main');
+}
+
+function render(r) {
+  $('myName').textContent = r.displayName;
+  $('remaining').textContent = r.kubun === '免除' ? '参加 ' + r.stats.total + ' 回目' : '残り ' + r.remaining + ' 回';
+  const rate = r.stats.rate === null ? '―' : r.stats.rate + '%';
+  const since = r.joinDate ? '（' + r.joinDate.slice(5).replace('-', '/') + '入会〜）' : '';
+  $('statsLine').textContent = '通算 ' + r.stats.total + ' 回参加 ／ 参加率 ' + rate + ' ' + since;
+
+  if (r.today) {
+    $('todayLabel').textContent = '今日は 第' + r.today.通算番号 + '回（' + r.today.時間帯 + '）';
+    $('todayCount').textContent = r.today.count;
+    $('todayNames').innerHTML = r.today.names.map(n => '<li>' + esc(n) + '</li>').join('');
+    $('actionCard').classList.remove('hidden');
+    $('btnCheckin').classList.toggle('hidden', r.attendedToday);
+    $('doneLine').classList.toggle('hidden', !r.attendedToday);
+    $('doneLine').textContent = '本日は受付済みです';
+  } else {
+    $('todayLabel').textContent = '今日は練習日ではありません' + (r.next ? '（次回 ' + r.next.日付.slice(5).replace('-', '/') + ' ' + r.next.時間帯 + '）' : '');
+    $('todayCount').textContent = '0';
+    $('todayNames').innerHTML = '';
+    $('actionCard').classList.add('hidden');
+  }
+  $('history').innerHTML = r.history.map(h => '<li><span>' + esc(h.日付) + (h.通算番号 ? ' 第' + h.通算番号 + '回' : '') + '</span><span>' + esc(h.種別) + '</span></li>').join('') || '<li class="sub">まだありません</li>';
+  if (r.isAdmin) { $('adminLink').innerHTML = '<a href="admin.html">管理画面を開く</a>'; $('adminLink').classList.remove('hidden'); }
+}
+
+async function checkin(choice) {
+  $('btnCheckin').disabled = true; $('btnCheckin').textContent = '記録中…';
+  const r = await KickApi.call('checkin', { choice });
+  $('btnCheckin').disabled = false; $('btnCheckin').textContent = '出席する';
+  if (r.needChoice) {
+    $('choices').innerHTML = r.options.map(o => '<button class="btn sec" data-key="' + o.key + '">' + esc(o.label) + ' ' + o.amount.toLocaleString() + '円</button>').join('');
+    $('choices').classList.remove('hidden');
+    $('choices').querySelectorAll('button').forEach(b => b.onclick = () => checkin(b.dataset.key));
+    return;
+  }
+  $('choices').classList.add('hidden');
+  if (!r.ok) { msg(r.message, true); await load(); return; }
+  let text = '受付しました。';
+  if (r.type === '券') text += ' 残り ' + r.remaining + ' 回';
+  if (r.remaining === 1) text += '。次の券をご用意ください';
+  if (r.amount > 0) text += '。本日 ' + r.amount.toLocaleString() + ' 円をお支払いください';
+  if (r.unpaid > 0) text += '。回数券のお支払い（' + r.unpaid.toLocaleString() + '円）は管理者へ';
+  msg(text, false);
+  await load();
+}
+
+$('btnLogin').onclick = async () => {
+  const r = await KickApi.call('login', { name: $('loginName').value, pin: $('loginPin').value });
+  if (!r.ok) { msg(r.message, true); return; }
+  KickApi.setToken(r.token); msg(''); await load();
+};
+$('btnRegister').onclick = async () => {
+  const r = await KickApi.call('register', { name: $('regName').value, pin: $('regPin').value });
+  if (!r.ok) { msg(r.message, true); return; }
+  KickApi.setToken(r.token); msg(r.message, false); await load();
+};
+$('btnReload1').onclick = load;
+$('btnCheckin').onclick = () => checkin(null);
+$('btnRename').onclick = async () => {
+  const r = await KickApi.call('rename', { name: $('newName').value });
+  msg(r.ok ? '表示名を変更しました' : r.message, !r.ok); if (r.ok) { $('newName').value = ''; await load(); }
+};
+$('btnChangePin').onclick = async () => {
+  const r = await KickApi.call('changePin', { currentPin: $('curPin').value, newPin: $('newPin').value });
+  msg(r.message, !r.ok); if (r.ok) { $('curPin').value = ''; $('newPin').value = ''; }
+};
+const logout = () => { if (confirm('この端末からログアウトしますか？（次回は名前と暗証番号が必要です）')) { KickApi.setToken(''); msg(''); load(); } };
+$('btnLogout').onclick = logout;
+$('btnLogout1').onclick = logout;
+
+load();
+</script>
+</body>
+</html>
