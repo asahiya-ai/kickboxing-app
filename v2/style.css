@@ -22,3 +22,20 @@ input[type=text], input[type=password], input[type=tel], select { width: 100%; f
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 td, th { border-top: 1px solid var(--line); padding: 8px 4px; text-align: left; }
 .hidden { display: none; }
+details.card summary { cursor: pointer; list-style: none; }
+details.card summary::-webkit-details-marker { display: none; }
+details.card summary::before { content: "▸ "; color: var(--main); }
+details.card[open] summary::before { content: "▾ "; }
+details.card summary .sub { margin-left: 6px; }
+.cal-title { font-weight: 700; margin-bottom: 6px; }
+.cal + .cal { margin-top: 12px; }
+.cal-grid { table-layout: fixed; text-align: center; }
+.cal-grid th { font-weight: 400; color: var(--muted); border: 0; padding: 2px 0; font-size: 12px; }
+.cal-grid th:first-child, .cal-grid td:first-child { color: #c62828; }
+.cal-grid th:last-child, .cal-grid td:last-child { color: #1565c0; }
+.cal-grid td { border: 0; padding: 2px 0; height: 44px; vertical-align: top; font-size: 14px; }
+.cal-day.on { background: #ffebee; border-radius: 8px; font-weight: 700; color: var(--main) !important; }
+.cal-day.off { color: #aaa !important; text-decoration: line-through; }
+.cal-day.today { outline: 2px solid var(--main); outline-offset: -2px; border-radius: 8px; }
+.cal-mark { font-size: 11px; line-height: 1; margin-top: 2px; color: var(--main); }
+.cal-day.off .cal-mark { color: #aaa; text-decoration: none; }

@@ -135,7 +135,22 @@ function actionMe(me) {
     today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯,
       count: me.状態 === '有効' ? ctx.todays.length : 0, names: me.状態 === '有効' ? ctx.todays.map(function (a) { return a.表示名; }) : [] } : null,
     next: nextSessionAfter(ctx.sessions, ctx.todayStr),
+    calendar: calendarSessions(ctx.sessions, ctx.todayStr),
+    todayStr: ctx.todayStr,
   };
+}
+
+// 今月と来月の開催（カレンダー描画用。誰でも見てよい情報だけ）
+function calendarSessions(sessions, todayStr) {
+  var y = Number(todayStr.slice(0, 4)), m = Number(todayStr.slice(5, 7));
+  var thisMonth = todayStr.slice(0, 7);
+  var nextMonth = (m === 12 ? (y + 1) + '-01' : y + '-' + (m + 1 < 10 ? '0' : '') + (m + 1));
+  return sessions.filter(function (s) {
+    var ym = String(s.日付).slice(0, 7);
+    return ym === thisMonth || ym === nextMonth;
+  }).map(function (s) {
+    return { 日付: s.日付, 時間帯: s.時間帯, 状態: s.状態, 通算番号: s.通算番号 };
+  });
 }
 
 function actionRename(members, me, body) {
