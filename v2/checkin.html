@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>受付 | 佐世保キックボクシング倶楽部</title>
-<link rel="stylesheet" href="style.css?v=20260919c">
+<link rel="stylesheet" href="style.css?v=20260919d">
 </head>
 <body>
 <div class="wrap">
@@ -47,6 +47,7 @@
           <div class="stat-label" id="ticketLabel">回数券</div>
           <div class="stat-num" id="remaining"></div>
           <div class="ticket" id="ticketDots"></div>
+          <div id="ticketNote" class="hidden"></div>
         </div>
         <div class="stat">
           <div class="stat-label">通算参加</div>
@@ -87,8 +88,8 @@
   </div>
 </div>
 
-<script src="config.js?v=20260919c"></script>
-<script src="api.js?v=20260919c"></script>
+<script src="config.js?v=20260919d"></script>
+<script src="api.js?v=20260919d"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -161,6 +162,23 @@ function render(r) {
       dots += '<div class="tk' + (used ? ' used' : '') + '"><div class="tk-n">' + circ[i] + '</div><div class="tk-d">' + (used ? (d || '済') : '') + '</div></div>';
     }
     $('ticketDots').innerHTML = dots;
+    const note = $('ticketNote');
+    const unpaidLine = r.unpaid > 0 ? '<div class="sub" style="color:#c62828;margin-top:6px">未払いの券代 ' + r.unpaid.toLocaleString() + '円 があります。お支払いは管理者へ</div>' : '';
+    if (t.remaining === 0) {
+      const price = r.ticketPrice ? r.ticketPrice.toLocaleString() + '円' : '';
+      note.innerHTML = '<div class="warn">' + (t.none ? '回数券をご購入ください' : '5回券を使い切りました。次の券をご購入ください') + '</div>'
+        + '<button class="btn" id="btnBuy">5回券を買う ' + price + '</button>' + unpaidLine;
+      note.classList.remove('hidden');
+      $('btnBuy').onclick = buyTicket;
+    } else if (t.remaining === 1) {
+      note.innerHTML = '<div class="sub" style="color:#c62828">残り1回です。次の券をご用意ください</div>' + unpaidLine;
+      note.classList.remove('hidden');
+    } else if (r.unpaid > 0) {
+      note.innerHTML = unpaidLine;
+      note.classList.remove('hidden');
+    } else {
+      note.classList.add('hidden');
+    }
   }
 
   if (r.today) {
@@ -180,6 +198,16 @@ function render(r) {
   $('historyCount').textContent = '（' + r.history.length + '件）';
   $('history').innerHTML = r.history.map(h => '<li><span>' + esc(h.日付) + (h.通算番号 ? ' 第' + h.通算番号 + '回' : '') + '</span><span>' + esc(h.種別) + '</span></li>').join('') || '<li class="sub">まだありません</li>';
   if (r.isAdmin) { $('adminLink').innerHTML = '<a href="admin.html">管理画面を開く</a>'; $('adminLink').classList.remove('hidden'); }
+}
+
+async function buyTicket() {
+  const b = $('btnBuy');
+  if (!confirm(b.textContent.replace('5回券を買う ', '5回券（') + '）を購入します。代金は管理者にお支払いください。よろしいですか？')) return;
+  b.disabled = true; b.textContent = '記録中…';
+  const r = await KickApi.call('buyTicket');
+  if (!r.ok) { msg(r.message, true); await load(); return; }
+  msg('5回券を追加しました（残り ' + r.remaining + ' 回）。代金 ' + r.amount.toLocaleString() + ' 円は管理者にお支払いください', false);
+  await load();
 }
 
 async function checkin(choice) {

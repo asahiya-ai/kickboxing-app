@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>管理 | 佐世保キックボクシング倶楽部</title>
-<link rel="stylesheet" href="style.css?v=20260919c">
+<link rel="stylesheet" href="style.css?v=20260919d">
 </head>
 <body>
 <div class="wrap">
@@ -57,8 +57,8 @@
   </div>
 </div>
 
-<script src="config.js?v=20260919c"></script>
-<script src="api.js?v=20260919c"></script>
+<script src="config.js?v=20260919d"></script>
+<script src="api.js?v=20260919d"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
@@ -112,8 +112,21 @@ async function loadSessions() {
 async function loadMembers() {
   const r = await KickApi.call('admin.members');
   if (!r.ok) return msg(r.message, true);
-  $('memberRows').innerHTML = r.list.map(m => '<tr><td>' + esc(m.表示名) + (m.locked ? ' 🔒' : '') + '</td><td>' + esc(m.区分) + '</td><td>' + esc(m.状態) + '</td><td>' + esc(m.残り回数) + '</td><td>'
+  $('memberRows').innerHTML = r.list.map(m => '<tr><td>' + esc(m.表示名) + (m.locked ? ' 🔒' : '') + (m.未収 > 0 ? '<div style="color:#c62828;font-size:12px">🔴 未収 ' + Number(m.未収).toLocaleString() + '円</div>' : '') + '</td><td>' + esc(m.区分) + '</td><td>' + esc(m.状態) + '</td><td>' + esc(m.残り回数) + '</td><td class="ops">'
+    + (m.未収 > 0 ? '<button data-paid="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-amt="' + m.未収 + '">入金済みにする</button>' : '')
+    + '<button data-grant="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">券を付与</button>'
     + '<button data-reset="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">番号リセット</button></td></tr>').join('');
+  $('memberRows').querySelectorAll('[data-paid]').forEach(b => b.onclick = async () => {
+    if (!confirm(b.dataset.name + ' の未収 ' + Number(b.dataset.amt).toLocaleString() + '円 を入金済みにしますか？')) return;
+    const rr = await KickApi.call('admin.markPaid', { 会員ID: b.dataset.paid });
+    msg(rr.message, !rr.ok); loadMembers();
+  });
+  $('memberRows').querySelectorAll('[data-grant]').forEach(b => b.onclick = async () => {
+    const paid = confirm(b.dataset.name + ' に5回券を付与します。代金を受け取り済みなら「OK」、後払い（未収）なら「キャンセル」');
+    if (!paid && !confirm('未収（後払い）として付与しますか？')) return;
+    const rr = await KickApi.call('admin.purchase', { 会員ID: b.dataset.grant, paid });
+    msg(rr.message, !rr.ok); loadMembers();
+  });
   $('memberRows').querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
     const pin = prompt(b.dataset.name + ' の新しい暗証番号（4桁）を入力');
     if (pin === null) return;

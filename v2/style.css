@@ -61,3 +61,6 @@ label.sub { display:block; margin-top: 8px; }
 .tk-n { font-size: 22px; line-height: 1; }
 .tk-d { font-size: 11px; margin-top: 4px; min-height: 13px; }
 @media (min-width: 420px) { .stat-row { grid-template-columns: 1fr 1fr; } .stat:first-child { grid-column: 1 / -1; } }
+.warn { margin: 10px 0 8px; padding: 8px 10px; background: #ffebee; color: #c62828; border-radius: 8px; font-weight: 700; }
+#ticketNote .btn { margin-top: 4px; }
+td.ops button { display: block; width: 100%; margin: 2px 0; font-size: 12px; }

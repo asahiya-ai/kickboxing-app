@@ -40,6 +40,7 @@ function handleRequest(body) {
     case 'rename': return actionRename(members, me, body);
     case 'changePin': return actionChangePin(me, body);
     case 'checkin': return actionCheckin(me, body);
+    case 'buyTicket': return actionBuyTicket(me);
     default: return { ok: false, message: '不明な操作です' };
   }
 }
@@ -83,6 +84,30 @@ function actionLogin(members, body) {
   var token = m.トークン || newToken();
   Repo.update('会員', m._row, { トークン: token, ログイン失敗: 0 });
   return { ok: true, token: token, status: m.状態 };
+}
+
+// 本人のスマホから5回券を買う（残り0のときだけ）。購入は「未収」で記録し、管理者が入金を確認したら消し込む
+function actionBuyTicket(me) {
+  if (isExempt(me)) return { ok: false, message: 'この区分では回数券は不要です' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var fresh = Repo.readAll('会員').filter(function (m) { return m.会員ID === me.会員ID; })[0] || me;
+    if (fresh.状態 !== '有効') return { ok: false, message: '現在は購入できません。管理者にご確認ください' };
+    if ((Number(fresh.残り回数) || 0) > 0) return { ok: false, message: 'まだ残りがあります。使い切ってから購入してください' };
+    var prices = Repo.prices();
+    var code = fresh.区分 === '運営会員' ? 'ticket5_staff' : 'ticket5';
+    if (!prices[code]) return { ok: false, message: '料金表の設定が足りません。管理者に連絡してください' };
+    var nowStr = formatDateTime(new Date());
+    Repo.append('購入', {
+      購入ID: Repo.nextId('購入'), 日時: nowStr, 会員ID: fresh.会員ID, 種別: prices[code].表示名,
+      付与回数: prices[code].付与回数, 金額: prices[code].金額, 入金: '未収', 入金日: '', 記録者: fresh.会員ID, 備考: '本人のスマホから',
+    });
+    Repo.update('会員', fresh._row, { 残り回数: prices[code].付与回数 });
+    return { ok: true, remaining: prices[code].付与回数, amount: prices[code].金額 };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function actionChangePin(me, body) {
@@ -134,12 +159,20 @@ function actionMe(me) {
     attendedToday: ctx.todays.some(function (a) { return a.会員ID === me.会員ID; }),
     history: history,
     ticket: ticketView(me, mine, byId),
+    unpaid: unpaidAmount(me.会員ID),
+    ticketPrice: (function () { var p = Repo.prices(); var c = me.区分 === '運営会員' ? 'ticket5_staff' : 'ticket5'; return p[c] ? p[c].金額 : null; })(),
     today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯,
       count: me.状態 === '有効' ? ctx.todays.length : 0, names: me.状態 === '有効' ? ctx.todays.map(function (a) { return a.表示名; }) : [] } : null,
     next: nextSessionAfter(ctx.sessions, ctx.todayStr),
     calendar: calendarSessions(ctx.sessions, ctx.todayStr),
     todayStr: ctx.todayStr,
   };
+}
+
+// 本人の未収合計
+function unpaidAmount(memberId) {
+  return Repo.readAll('購入').filter(function (p) { return p.会員ID === memberId && p.入金 === '未収'; })
+    .reduce(function (sum, p) { return sum + (Number(p.金額) || 0); }, 0);
 }
 
 // 今の回数券の見え方：券サイズ（既定5）・残り・使った回の日付（新しい順に「使った数」だけ）
@@ -234,6 +267,8 @@ function handleAdmin(action, body, admin) {
     case 'admin.import': return adminImport(body, admin);
     case 'admin.cleanup': return { ok: true, deleted: Repo.deleteBlankRows('会員') };
     case 'admin.repairMissing': return adminRepairMissing(body);
+    case 'admin.markPaid': return adminMarkPaid(body);
+    case 'admin.purchase': return adminPurchase(body, admin);
     default: return { ok: false, message: '不明な操作です' };
   }
 }
@@ -338,10 +373,12 @@ function adminMembers() {
   var members = Repo.readAll('会員');
   var total = {};
   Repo.readAll('出席').forEach(function (a) { if (a.状態 === '有効') total[a.会員ID] = (total[a.会員ID] || 0) + 1; });
+  var unpaid = {};
+  Repo.readAll('購入').forEach(function (p) { if (p.入金 === '未収') unpaid[p.会員ID] = (unpaid[p.会員ID] || 0) + (Number(p.金額) || 0); });
   return {
     ok: true,
     list: members.filter(function (m) { return m.状態 !== '退会'; }).map(function (m) {
-      return { 会員ID: m.会員ID, 表示名: m.表示名, 区分: m.区分, 状態: m.状態, 残り回数: m.残り回数, 入会日: m.入会日, 通算: total[m.会員ID] || 0,
+      return { 会員ID: m.会員ID, 表示名: m.表示名, 区分: m.区分, 状態: m.状態, 残り回数: m.残り回数, 入会日: m.入会日, 通算: total[m.会員ID] || 0, 未収: unpaid[m.会員ID] || 0,
         ログイン失敗: Number(m.ログイン失敗) || 0, locked: isLocked(m.ログイン失敗), hasToken: !!m.トークン };
     }),
   };
@@ -467,4 +504,37 @@ function adminRepairMissing(body) {
   });
   var added = Repo.appendMany('会員', rows);
   return { ok: true, restored: added.map(function (r) { return r.会員ID + ' ' + r.表示名; }) };
+}
+
+// その会員の未収を全部「入金済み」にする
+function adminMarkPaid(body) {
+  var rows = Repo.readAll('購入').filter(function (p) { return p.会員ID === body.会員ID && p.入金 === '未収'; });
+  if (!rows.length) return { ok: false, message: '未収はありません' };
+  var today = formatDate(new Date());
+  rows.forEach(function (p) { Repo.update('購入', p._row, { 入金: '入金済み', 入金日: today }); });
+  return { ok: true, message: rows.length + '件を入金済みにしました', total: rows.reduce(function (s, p) { return s + (Number(p.金額) || 0); }, 0) };
+}
+
+// 管理者が券を付与する（現金を受け取ったとき＝入金済み／後払い＝未収）
+function adminPurchase(body, admin) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var m = Repo.readAll('会員').filter(function (x) { return x.会員ID === body.会員ID; })[0];
+    if (!m) return { ok: false, message: '会員が見つかりません' };
+    var prices = Repo.prices();
+    var code = m.区分 === '運営会員' ? 'ticket5_staff' : 'ticket5';
+    if (!prices[code]) return { ok: false, message: '料金表の設定が足りません' };
+    var paid = body.paid !== false;
+    var nowStr = formatDateTime(new Date());
+    Repo.append('購入', {
+      購入ID: Repo.nextId('購入'), 日時: nowStr, 会員ID: m.会員ID, 種別: prices[code].表示名, 付与回数: prices[code].付与回数,
+      金額: prices[code].金額, 入金: paid ? '入金済み' : '未収', 入金日: paid ? nowStr.slice(0, 10) : '', 記録者: admin.会員ID, 備考: '管理画面から',
+    });
+    var newRemaining = (Number(m.残り回数) || 0) + prices[code].付与回数;
+    Repo.update('会員', m._row, { 残り回数: newRemaining });
+    return { ok: true, message: m.表示名 + ' に5回付与しました（残り ' + newRemaining + ' 回・' + (paid ? '入金済み' : '未収') + '）' };
+  } finally {
+    lock.releaseLock();
+  }
 }
