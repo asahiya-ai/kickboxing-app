@@ -4,9 +4,9 @@
 //   { ok:false, needChoice:true, options:[...] } … 画面で選ばせる
 //   { ok:true, attendance:{支払い種別,金額,消化}, remainingAfter, purchase|null, setJoinDate }
 
-// 区分の一覧。会長・副会長は「免除」と同じ扱い（お金も券も動かさず回数だけ数える）
-var KUBUN_LIST = ['一般', '運営会員', '会長', '副会長', '免除'];
-var KUBUN_EXEMPT = ['免除', '会長', '副会長'];
+// 区分の一覧。部長・副部長は「免除」と同じ扱い（お金も券も動かさず回数だけ数える）
+var KUBUN_LIST = ['一般', '運営会員', '部長', '副部長', '免除'];
+var KUBUN_EXEMPT = ['免除', '部長', '副部長'];
 
 function isExempt(member) {
   return KUBUN_EXEMPT.indexOf(String(member.区分 || '').trim()) >= 0;
