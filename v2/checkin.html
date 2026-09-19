@@ -231,7 +231,25 @@ const logout = () => { if (confirm('この端末からログアウトします�
 $('btnLogout').onclick = logout;
 $('btnLogout1').onclick = logout;
 
-load();
+// ?demo=1 で開くと架空の会員データで画面だけ見られる（サーバーには何も送らない）
+if (new URLSearchParams(location.search).get('demo') === '1') {
+  const t = new Date(); const y = t.getFullYear(), m = t.getMonth() + 1;
+  const ym = (mm) => y + '-' + String(mm).padStart(2, '0');
+  const todayStr = ym(m) + '-' + String(t.getDate()).padStart(2, '0');
+  render({
+    displayName: 'デモ太郎', kubun: '一般', exempt: false, isAdmin: false, remaining: 2, joinDate: '2024-01-13',
+    stats: { total: 23, held: 60, attended: 23, rate: 38 }, attendedToday: false, todayStr,
+    ticket: { size: 5, remaining: 2, used: [ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26'] },
+    history: [{ 日付: ym(m) + '-26', 通算番号: 94, 種別: '券' }, { 日付: ym(m) + '-12', 通算番号: 92, 種別: '券' }, { 日付: ym(m - 1 || 12) + '-22', 通算番号: 90, 種別: '券' }],
+    today: null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
+    calendar: [{ 日付: ym(m) + '-12', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-26', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-17', 時間帯: '昼', 状態: '中止' },
+      { 日付: ym(m + 1) + '-07', 時間帯: '夜', 状態: '予定' }, { 日付: ym(m + 1) + '-10', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m + 1) + '-14', 時間帯: '夜', 状態: '予定' }],
+  });
+  msg('デモ表示です（架空のデータ）', false);
+  show('v-main');
+} else {
+  load();
+}
 </script>
 </body>
 </html>
