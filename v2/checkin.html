@@ -233,20 +233,31 @@ $('btnLogout').onclick = logout;
 $('btnLogout1').onclick = logout;
 
 // ?demo=1 で開くと架空の会員データで画面だけ見られる（サーバーには何も送らない）
-if (new URLSearchParams(location.search).get('demo') === '1') {
+const demoMode = new URLSearchParams(location.search).get('demo');
+if (demoMode === '1' || demoMode === '2') {
   const t = new Date(); const y = t.getFullYear(), m = t.getMonth() + 1;
   const ym = (mm) => y + '-' + String(mm).padStart(2, '0');
   const todayStr = ym(m) + '-' + String(t.getDate()).padStart(2, '0');
+  const full = demoMode === '2'; // 5回目を使った直後（残り0）
   render({
-    displayName: 'デモ太郎', kubun: '一般', exempt: false, isAdmin: false, remaining: 2, joinDate: '2024-01-13',
-    stats: { total: 23, held: 60, attended: 23, rate: 38 }, attendedToday: false, todayStr,
-    ticket: { size: 5, remaining: 2, used: [ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26'] },
+    displayName: 'デモ太郎', kubun: '一般', exempt: false, isAdmin: false, remaining: full ? 0 : 2, joinDate: '2024-01-13',
+    stats: { total: full ? 25 : 23, held: 60, attended: full ? 25 : 23, rate: full ? 42 : 38 }, attendedToday: full, todayStr,
+    ticket: full
+      ? { size: 5, remaining: 0, used: [ym(m - 2 || 12) + '-08', ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26', todayStr] }
+      : { size: 5, remaining: 2, used: [ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26'] },
     history: [{ 日付: ym(m) + '-26', 通算番号: 94, 種別: '券' }, { 日付: ym(m) + '-12', 通算番号: 92, 種別: '券' }, { 日付: ym(m - 1 || 12) + '-22', 通算番号: 90, 種別: '券' }],
     today: null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
     calendar: [{ 日付: ym(m) + '-12', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-26', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-17', 時間帯: '昼', 状態: '中止' },
       { 日付: ym(m + 1) + '-07', 時間帯: '夜', 状態: '予定' }, { 日付: ym(m + 1) + '-10', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m + 1) + '-14', 時間帯: '夜', 状態: '予定' }],
   });
-  msg('デモ表示です（架空のデータ）', false);
+  if (full) {
+    $('todayLabel').textContent = '今日は 第100回（昼 10:00〜12:00）';
+    $('actionCard').classList.remove('hidden'); $('btnCheckin').classList.add('hidden');
+    $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです';
+    msg('受付しました。残り 0 回。次の券をご用意ください。', false);
+  } else {
+    msg('デモ表示です（架空のデータ）', false);
+  }
   show('v-main');
 } else {
   load();
