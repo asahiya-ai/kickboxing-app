@@ -68,10 +68,10 @@
       <b>今日の出席 <span id="todayCount">0</span>名</b>
       <ul class="list" id="todayNames"></ul>
     </div>
-    <div class="card">
-      <b>参加履歴</b>
+    <details class="card">
+      <summary><b>参加履歴</b><span class="sub" id="historyCount"></span></summary>
       <ul class="list" id="history"></ul>
-    </div>
+    </details>
     <details class="card">
       <summary><b>設定</b><span class="sub">（表示名・暗証番号・ログアウト）</span></summary>
       <p class="sub">表示名：<span id="myName"></span></p>
@@ -177,6 +177,7 @@ function render(r) {
     $('todayNames').innerHTML = '';
     $('actionCard').classList.add('hidden');
   }
+  $('historyCount').textContent = '（' + r.history.length + '件）';
   $('history').innerHTML = r.history.map(h => '<li><span>' + esc(h.日付) + (h.通算番号 ? ' 第' + h.通算番号 + '回' : '') + '</span><span>' + esc(h.種別) + '</span></li>').join('') || '<li class="sub">まだありません</li>';
   if (r.isAdmin) { $('adminLink').innerHTML = '<a href="admin.html">管理画面を開く</a>'; $('adminLink').classList.remove('hidden'); }
 }
