@@ -61,6 +61,25 @@ var Repo = (function () {
     return sh.getLastRow();
   }
 
+  // まとめて追記（移行用）。IDは行番号から振る。戻り値は追記した行オブジェクト（ID付き）
+  function appendMany(tab, objs) {
+    if (!objs.length) return [];
+    var sh = sheet(tab);
+    var h = HEADERS[tab];
+    var idKey = h[0];
+    var start = sh.getLastRow() + 1;
+    var base = maxIdNumber(tab);
+    var rows = objs.map(function (o, i) {
+      var copy = Object.assign({}, o);
+      if (!copy[idKey]) copy[idKey] = ID_PREFIX[tab] + String(base + 1 + i);
+      return copy;
+    });
+    sh.getRange(start, 1, rows.length, h.length).setValues(rows.map(function (o) {
+      return h.map(function (k) { return o[k] === undefined ? '' : o[k]; });
+    }));
+    return rows;
+  }
+
   function update(tab, rowNumber, patch) {
     var sh = sheet(tab);
     var h = HEADERS[tab];
@@ -71,9 +90,38 @@ var Repo = (function () {
     });
   }
 
-  // 追記される行番号をIDにする（2行目なら M2）。行は削除しない運用が前提
+  // 既存IDの最大＋1（行番号ではなく値から決める。チェックボックス列の FALSE で getLastRow が伸びても影響しない）
+  function maxIdNumber(tab) {
+    var values = sheet(tab).getRange(1, 1, sheet(tab).getLastRow(), 1).getValues();
+    var max = 1; // 見出し行を 1 とみなす → 最初のIDは 2
+    for (var i = 1; i < values.length; i++) {
+      var n = Number(String(values[i][0] || '').replace(/^[A-Z]+/, ''));
+      if (n > max) max = n;
+    }
+    return max;
+  }
+
   function nextId(tab) {
-    return ID_PREFIX[tab] + String(sheet(tab).getLastRow() + 1);
+    return ID_PREFIX[tab] + String(maxIdNumber(tab) + 1);
+  }
+
+  // 会員IDが空の行（チェックボックス初期化で FALSE だけ入った行など）を削除する
+  function deleteBlankRows(tab) {
+    var sh = sheet(tab);
+    var last = sh.getLastRow();
+    var values = sh.getRange(1, 1, last, 1).getValues();
+    var deleted = 0;
+    var r = last;
+    while (r >= 2) {
+      if (values[r - 1][0] === '' || values[r - 1][0] === null) {
+        var end = r;
+        while (r - 1 >= 2 && (values[r - 2][0] === '' || values[r - 2][0] === null)) r--;
+        sh.deleteRows(r, end - r + 1); // 連続する空行をまとめて削除
+        deleted += end - r + 1;
+      }
+      r--;
+    }
+    return deleted;
   }
 
   function setting(key, defaultValue) {
@@ -92,7 +140,7 @@ var Repo = (function () {
     return out;
   }
 
-  return { readAll: readAll, append: append, update: update, nextId: nextId, setting: setting, prices: prices, HEADERS: HEADERS };
+  return { readAll: readAll, append: append, appendMany: appendMany, update: update, deleteBlankRows: deleteBlankRows, nextId: nextId, setting: setting, prices: prices, HEADERS: HEADERS };
 })();
 
 // GAS エディタから実行：会員タブの区分・状態・管理者にプルダウン／チェックボックスを付ける（何度実行してもよい）
