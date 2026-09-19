@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>受付 | 佐世保キックボクシング倶楽部</title>
-<link rel="stylesheet" href="style.css?v=20260919e">
+<link rel="stylesheet" href="style.css?v=20260919f">
 </head>
 <body>
 <div class="wrap">
@@ -89,8 +89,8 @@
   </div>
 </div>
 
-<script src="config.js?v=20260919e"></script>
-<script src="api.js?v=20260919e"></script>
+<script src="config.js?v=20260919f"></script>
+<script src="api.js?v=20260919f"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -105,7 +105,13 @@ async function load() {
   if (r.needLogin) { show('v-login'); return; }
   if (!r.ok) { msg(r.message, true); show('loading'); $('loading').textContent = '表示できませんでした'; return; }
   if (r.status === '承認待ち') { $('pendingName').textContent = r.displayName; show('v-pending'); return; }
-  if (r.status !== '有効') { msg('現在は出席できません（' + r.status + '）。管理者にご確認ください', true); show('loading'); $('loading').textContent = ''; return; }
+  if (r.status !== '有効') {
+    msg('現在は出席できません（' + r.status + '）。管理者にご確認ください', true);
+    show('loading');
+    $('loading').innerHTML = '<p><b>' + esc(r.displayName) + '</b> さんとしてログイン中</p><button class="btn sec" id="btnBackLogin">ログイン画面に戻る</button>';
+    $('btnBackLogin').onclick = () => { KickApi.setToken(''); msg(''); $('loading').textContent = '読み込み中…'; load(); };
+    return;
+  }
   render(r);
   show('v-main');
 }

@@ -82,8 +82,12 @@ function actionLogin(members, body) {
     return { ok: false, message: MSG_BAD_LOGIN };
   }
   var token = m.トークン || newToken();
-  Repo.update('会員', m._row, { トークン: token, ログイン失敗: 0 });
-  return { ok: true, token: token, status: m.状態 };
+  var patch = { トークン: token, ログイン失敗: 0 };
+  // 休会（1年以上来ていない人）は、ログインして戻ってきた時点で自動的に有効へ
+  var status = m.状態;
+  if (status === '休会') { patch.状態 = '有効'; patch.備考 = (m.備考 || '') + ' / 復帰 ' + formatDate(new Date()); status = '有効'; }
+  Repo.update('会員', m._row, patch);
+  return { ok: true, token: token, status: status };
 }
 
 // 本人のスマホから5回券を買う（残り0のときだけ）。購入は「未収」で記録し、管理者が入金を確認したら消し込む
