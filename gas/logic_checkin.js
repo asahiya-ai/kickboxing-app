@@ -4,6 +4,14 @@
 //   { ok:false, needChoice:true, options:[...] } … 画面で選ばせる
 //   { ok:true, attendance:{支払い種別,金額,消化}, remainingAfter, purchase|null, setJoinDate }
 
+// 区分の一覧。会長・副会長は「免除」と同じ扱い（お金も券も動かさず回数だけ数える）
+var KUBUN_LIST = ['一般', '運営会員', '会長', '副会長', '免除'];
+var KUBUN_EXEMPT = ['免除', '会長', '副会長'];
+
+function isExempt(member) {
+  return KUBUN_EXEMPT.indexOf(String(member.区分 || '').trim()) >= 0;
+}
+
 function ticketPrice(member, prices) {
   if (member.区分 === '運営会員') {
     return { 種別: '5回券（運営会員）', 付与回数: prices.ticket5_staff.付与回数, 金額: prices.ticket5_staff.金額 };
@@ -34,7 +42,7 @@ function decideCheckin(input) {
 
   var base = { purchase: null, setJoinDate: isFirst };
 
-  if (m.区分 === '免除') {
+  if (isExempt(m)) {
     return Object.assign(base, { ok: true, attendance: { 支払い種別: '免除', 金額: 0, 消化: false }, remainingAfter: remaining });
   }
 
@@ -85,4 +93,4 @@ function decideCheckin(input) {
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { decideCheckin };
+if (typeof module !== 'undefined') module.exports = { decideCheckin, isExempt, KUBUN_LIST, KUBUN_EXEMPT };

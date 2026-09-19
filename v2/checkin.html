@@ -127,7 +127,7 @@ function renderCalendar(r) {
 function render(r) {
   renderCalendar(r);
   $('myName').textContent = r.displayName;
-  $('remaining').textContent = r.kubun === '免除' ? '参加 ' + r.stats.total + ' 回目' : '残り ' + r.remaining + ' 回';
+  $('remaining').textContent = r.exempt ? '参加 ' + r.stats.total + ' 回目' : '残り ' + r.remaining + ' 回';
   const rate = r.stats.rate === null ? '―' : r.stats.rate + '%';
   const since = r.joinDate ? '（' + r.joinDate.slice(5).replace('-', '/') + '入会〜）' : '';
   $('statsLine').textContent = '通算 ' + r.stats.total + ' 回参加 ／ 参加率 ' + rate + ' ' + since;

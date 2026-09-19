@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { decideCheckin } = require('../gas/logic_checkin.js');
+const { decideCheckin, isExempt } = require('../gas/logic_checkin.js');
 
 const prices = {
   trial: { 金額: 500, 付与回数: 0 },
@@ -104,4 +104,15 @@ test('初回でも残りがあれば（管理者が先に券を付与）券を�
   const r = decideCheckin({ member: member({ 入会日: '', 残り回数: 5 }), session, alreadyAttended: false, prices, choice: null });
   assert.equal(r.attendance.支払い種別, '券');
   assert.equal(r.setJoinDate, true);
+});
+
+test('会長・副会長は免除と同じ（金額0・消化なし）', () => {
+  for (const k of ['会長', '副会長', '免除']) {
+    const r = decideCheckin({ member: member({ 区分: k, 残り回数: 3 }), session, alreadyAttended: false, prices, choice: null });
+    assert.equal(r.ok, true, k);
+    assert.deepEqual(r.attendance, { 支払い種別: '免除', 金額: 0, 消化: false });
+    assert.equal(r.remainingAfter, 3);
+  }
+  assert.equal(isExempt({ 区分: '一般' }), false);
+  assert.equal(isExempt({ 区分: ' 会長 ' }), true);
 });

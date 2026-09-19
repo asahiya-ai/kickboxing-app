@@ -95,6 +95,20 @@ var Repo = (function () {
   return { readAll: readAll, append: append, update: update, nextId: nextId, setting: setting, prices: prices, HEADERS: HEADERS };
 })();
 
+// GAS エディタから実行：会員タブの区分・状態・管理者にプルダウン／チェックボックスを付ける（何度実行してもよい）
+function setupValidations() {
+  var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  var sh = SpreadsheetApp.openById(id).getSheetByName('会員');
+  var rows = sh.getMaxRows() - 1;
+  var col = function (name) { return HEADERS['会員'].indexOf(name) + 1; };
+  sh.getRange(2, col('区分'), rows).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(KUBUN_LIST, true).setAllowInvalid(false).build());
+  sh.getRange(2, col('状態'), rows).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(['承認待ち', '有効', '休会', '退会'], true).setAllowInvalid(false).build());
+  sh.getRange(2, col('管理者'), rows).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireCheckbox().build());
+}
+
 // GAS エディタから1回だけ実行：タブと見出し、料金・設定の初期値を作る
 function setupSheets() {
   var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
@@ -127,4 +141,5 @@ function setupSheets() {
   }
   var first = book.getSheets()[0];
   if (first.getName() === 'シート1' && book.getSheets().length > 1) book.deleteSheet(first);
+  setupValidations();
 }

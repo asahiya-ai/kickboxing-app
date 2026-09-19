@@ -126,6 +126,7 @@ function actionMe(me) {
     status: me.状態,
     displayName: me.表示名,
     kubun: me.区分,
+    exempt: isExempt(me),
     isAdmin: isAdminMember(me),
     remaining: Number(me.残り回数) || 0,
     joinDate: me.入会日 || '',
