@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>受付 | 佐世保キックボクシング倶楽部</title>
-<link rel="stylesheet" href="style.css?v=20260919f">
+<link rel="stylesheet" href="style.css?v=20260919g">
 </head>
 <body>
 <div class="wrap">
@@ -89,8 +89,8 @@
   </div>
 </div>
 
-<script src="config.js?v=20260919f"></script>
-<script src="api.js?v=20260919f"></script>
+<script src="config.js?v=20260919g"></script>
+<script src="api.js?v=20260919g"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -156,7 +156,8 @@ function render(r) {
   $('myName').textContent = r.displayName;
   $('totalCount').textContent = r.stats.total;
   $('rateNum').textContent = r.stats.rate === null ? '―' : r.stats.rate + '%';
-  $('sinceLine').textContent = r.joinDate ? r.joinDate.slice(0, 7).replace('-', '/') + '〜' : '';
+  const rc = r.recent || { rate: null };
+  $('sinceLine').innerHTML = '<span class="recent">（直近2か月 ' + (rc.rate === null ? '―' : rc.rate + '%') + '）</span>' + (r.joinDate ? '<span class="sub">' + r.joinDate.slice(0, 7).replace('-', '/') + '〜</span>' : '');
   if (r.exempt) {
     $('ticketLabel').textContent = '区分';
     $('remaining').textContent = r.kubun;
@@ -280,7 +281,7 @@ if (demoMode === '1' || demoMode === '2') {
   const full = demoMode === '2'; // 5回目を使った直後（残り0）
   render({
     displayName: 'デモ太郎', kubun: '一般', exempt: false, isAdmin: false, remaining: full ? 0 : 2, joinDate: '2024-01-13',
-    stats: { total: full ? 25 : 23, held: 60, attended: full ? 25 : 23, rate: full ? 42 : 38 }, attendedToday: full, todayStr,
+    stats: { total: full ? 25 : 23, held: 60, attended: full ? 25 : 23, rate: full ? 42 : 38 }, recent: { rate: full ? 80 : 60 }, attendedToday: full, todayStr,
     ticket: full
       ? { size: 5, remaining: 0, used: [ym(m - 2 || 12) + '-08', ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26', todayStr] }
       : { size: 5, remaining: 2, used: [ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26'] },

@@ -160,6 +160,7 @@ function actionMe(me) {
     remaining: Number(me.残り回数) || 0,
     joinDate: me.入会日 || '',
     stats: stats,
+    recent: recentRate(ctx.sessions, ctx.attendances, me.会員ID, me.入会日, ctx.todayStr, 2),
     attendedToday: ctx.todays.some(function (a) { return a.会員ID === me.会員ID; }),
     history: history,
     ticket: ticketView(me, mine, byId),

@@ -16,4 +16,13 @@ function memberStats(sessions, attendances, memberId, joinDate, todayStr) {
   return { total: total, held: held.length, attended: attended, rate: rate };
 }
 
-if (typeof module !== 'undefined') module.exports = { memberStats };
+// 直近 N か月の参加率（todayStr から N か月前の同日以降〜今日）。入会日より前は数えない
+function recentRate(sessions, attendances, memberId, joinDate, todayStr, months) {
+  var y = Number(todayStr.slice(0, 4)), m = Number(todayStr.slice(5, 7)), d = Number(todayStr.slice(8, 10));
+  var from = new Date(y, m - 1 - months, d);
+  var fromStr = from.getFullYear() + '-' + (from.getMonth() + 1 < 10 ? '0' : '') + (from.getMonth() + 1) + '-' + (from.getDate() < 10 ? '0' : '') + from.getDate();
+  if (joinDate && joinDate > fromStr) fromStr = joinDate;
+  return memberStats(sessions, attendances, memberId, fromStr, todayStr);
+}
+
+if (typeof module !== 'undefined') module.exports = { memberStats, recentRate };
