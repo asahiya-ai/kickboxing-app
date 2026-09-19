@@ -273,6 +273,7 @@ function handleAdmin(action, body, admin) {
     case 'admin.cleanup': return { ok: true, deleted: Repo.deleteBlankRows('会員') };
     case 'admin.repairMissing': return adminRepairMissing(body);
     case 'admin.markPaid': return adminMarkPaid(body);
+    case 'admin.setupView': setupAttendanceView(); return { ok: true };
     case 'admin.purchase': return adminPurchase(body, admin);
     default: return { ok: false, message: '不明な操作です' };
   }

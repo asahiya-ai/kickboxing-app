@@ -191,3 +191,28 @@ function setupSheets() {
   if (first.getName() === 'シート1' && book.getSheets().length > 1) book.deleteSheet(first);
   setupValidations();
 }
+
+// 「参加一覧」タブ：開催ごとに出席者の名前を並べた見やすい表（数式で自動更新。GAS エディタから実行、何度でも可）
+function setupAttendanceView() {
+  var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  var book = SpreadsheetApp.openById(id);
+  var sh = book.getSheetByName('参加一覧') || book.insertSheet('参加一覧');
+  sh.clear();
+  sh.getRange(1, 1, 1, 7).setValues([['第', '日付', '曜日', '昼夜', '会場', '人数', '出席者']]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  // A〜E列：開催タブ（中止を除く）を新しい順に。H列に開催IDを置き、G列の数式が参照する
+  sh.getRange('A2').setFormula('=IFERROR(SORT(FILTER({開催!B2:B, 開催!C2:C, TEXT(開催!C2:C,"ddd"), 開催!D2:D, 開催!E2:E}, 開催!A2:A<>"", 開催!F2:F<>"中止"), 2, FALSE), "")');
+  sh.getRange('H2').setFormula('=IFERROR(SORT(FILTER({開催!C2:C, 開催!A2:A}, 開催!A2:A<>"", 開催!F2:F<>"中止"), 1, FALSE), "")');
+  var rows = 400;
+  var f = [], g = [];
+  for (var r = 2; r < 2 + rows; r++) {
+    f.push(['=IF($I' + r + '="","",COUNTIFS(出席!$C:$C,$I' + r + ',出席!$J:$J,"有効"))']);
+    g.push(['=IF($I' + r + '="","",TEXTJOIN("、",TRUE,IFERROR(ARRAYFORMULA(VLOOKUP(FILTER(出席!$D:$D,出席!$C:$C=$I' + r + ',出席!$J:$J="有効"),会員!$A:$B,2,FALSE)),"")))']);
+  }
+  sh.getRange(2, 6, rows, 1).setFormulas(f);
+  sh.getRange(2, 7, rows, 1).setFormulas(g);
+  sh.hideColumns(8, 2); // H: 日付（並べ替え用）, I: 開催ID
+  sh.setColumnWidth(7, 700);
+  sh.getRange(2, 7, rows, 1).setWrap(true);
+  sh.getRange('B2:B').setNumberFormat('@');
+}
