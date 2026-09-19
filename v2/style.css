@@ -35,13 +35,20 @@ details.card summary .sub { margin-left: 6px; }
 .cal-grid th:last-child, .cal-grid td:last-child { color: #1565c0; }
 .cal-grid td { border: 0; padding: 2px 0; height: 44px; vertical-align: top; font-size: 14px; }
 .cal-day.on { background: #ffebee; border-radius: 8px; font-weight: 700; color: var(--main) !important; }
+.cal-day.night { background: #e3f2fd; border-radius: 8px; font-weight: 700; color: #1565c0 !important; }
 .cal-day.off { color: #aaa !important; text-decoration: line-through; }
 .cal-day.today { outline: 2px solid var(--main); outline-offset: -2px; border-radius: 8px; }
 .cal-mark { font-size: 11px; line-height: 1; margin-top: 2px; color: var(--main); }
+.cal-mark .m-day { color: var(--main); }
+.cal-mark .m-night { color: #1565c0; }
 .cal-day.off .cal-mark { color: #aaa; text-decoration: none; }
 label.sub { display:block; margin-top: 8px; }
 
-.cal-legend { margin-top: 8px; line-height: 1.7; }
+.cal-legend { margin-top: 10px; display: grid; gap: 6px; font-size: 14px; }
+.lg { padding: 6px 10px; border-radius: 8px; }
+.lg-day { background: #ffebee; color: var(--main); }
+.lg-night { background: #e3f2fd; color: #1565c0; }
+.lg-off { background: #eee; color: #777; }
 .stat-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 6px; }
 .stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 .stat-label { color: var(--muted); font-size: 13px; }

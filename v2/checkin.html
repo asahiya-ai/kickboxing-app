@@ -128,14 +128,15 @@ function renderCalendar(r) {
       const list = byDate[key] || [];
       const live = list.filter(s => s.状態 !== '中止');
       const cancelled = list.length && !live.length;
-      const cls = ['cal-day', key === r.todayStr ? 'today' : '', live.length ? 'on' : '', cancelled ? 'off' : ''].join(' ');
-      const mark = live.length ? '<div class="cal-mark">' + live.map(s => s.時間帯 === '夜' ? '夜' : '昼').join('') + '</div>' : (cancelled ? '<div class="cal-mark">休</div>' : '');
+      const hasDay = live.some(s => s.時間帯 !== '夜'), hasNight = live.some(s => s.時間帯 === '夜');
+      const cls = ['cal-day', key === r.todayStr ? 'today' : '', hasDay ? 'on' : '', hasNight && !hasDay ? 'night' : '', cancelled ? 'off' : ''].join(' ');
+      const mark = live.length ? '<div class="cal-mark">' + live.map(s => s.時間帯 === '夜' ? '<span class="m-night">夜</span>' : '<span class="m-day">昼</span>').join('') + '</div>' : (cancelled ? '<div class="cal-mark">休</div>' : '');
       html += '<td class="' + cls + '"><div>' + d + '</div>' + mark + '</td>';
       if ((first.getDay() + d) % 7 === 0 && d !== days) html += '</tr><tr>';
     }
     html += '</tr></table></div>';
   });
-  $('calendarCard').innerHTML = html + '<div class="sub cal-legend"><div>昼 ＝ 昼の練習 <b>10:00〜12:00</b></div><div>夜 ＝ 夜の練習 <b>19:00〜21:00</b></div><div>休 ＝ 中止</div></div>';
+  $('calendarCard').innerHTML = html + '<div class="cal-legend"><div class="lg lg-day">昼 ＝ 昼の練習 <b>10:00〜12:00</b></div><div class="lg lg-night">夜 ＝ 夜の練習 <b>19:00〜21:00</b></div><div class="lg lg-off">休 ＝ 中止</div></div>';
 }
 
 function render(r) {
