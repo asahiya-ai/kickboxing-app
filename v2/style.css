@@ -15,7 +15,7 @@ h2 { font-size: 16px; margin: 0 0 8px; }
 .list li { padding: 8px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
 .msg { padding: 12px; border-radius: 8px; background: #fff3e0; margin-bottom: 12px; }
 .msg.err { background: #ffebee; }
-input[type=text], input[type=password], input[type=tel], select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
+input[type=text], input[type=password], input[type=tel], input[type=date], select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
 .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
 .tabs button { flex: 1; padding: 10px; border: 1px solid var(--line); background: #fff; border-radius: 8px; }
 .tabs button.on { background: var(--main); color: #fff; border-color: var(--main); }
@@ -39,3 +39,4 @@ details.card summary .sub { margin-left: 6px; }
 .cal-day.today { outline: 2px solid var(--main); outline-offset: -2px; border-radius: 8px; }
 .cal-mark { font-size: 11px; line-height: 1; margin-top: 2px; color: var(--main); }
 .cal-day.off .cal-mark { color: #aaa; text-decoration: none; }
+label.sub { display:block; margin-top: 8px; }

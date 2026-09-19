@@ -80,6 +80,7 @@ const $ = (id) => document.getElementById(id);
 
 function show(id) { ['loading', 'v-login', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
+function slotLabel(t) { return t === '夜' ? '夜 19:00〜21:00' : '昼 10:00〜12:00'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 async function load() {
@@ -120,7 +121,7 @@ function renderCalendar(r) {
     }
     html += '</tr></table></div>';
   });
-  $('calendarCard').innerHTML = html + '<div class="sub">● 昼の練習　夜 ＝ 夜の練習　休 ＝ 中止</div>';
+  $('calendarCard').innerHTML = html + '<div class="sub">● 昼の練習（10:00〜12:00）　夜 ＝ 夜の練習（19:00〜21:00）　休 ＝ 中止</div>';
 }
 
 function render(r) {
@@ -132,7 +133,7 @@ function render(r) {
   $('statsLine').textContent = '通算 ' + r.stats.total + ' 回参加 ／ 参加率 ' + rate + ' ' + since;
 
   if (r.today) {
-    $('todayLabel').textContent = '今日は 第' + r.today.通算番号 + '回（' + r.today.時間帯 + '）';
+    $('todayLabel').textContent = '今日は 第' + r.today.通算番号 + '回（' + slotLabel(r.today.時間帯) + '）';
     $('todayCount').textContent = r.today.count;
     $('todayNames').innerHTML = r.today.names.map(n => '<li>' + esc(n) + '</li>').join('');
     $('actionCard').classList.remove('hidden');

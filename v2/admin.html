@@ -34,15 +34,20 @@
 
     <div id="t-sessions" class="card hidden">
       <p class="sub">開催を登録します（通算番号は自動）</p>
-      <input type="text" id="sDate" placeholder="日付 2026-09-20">
+      <label class="sub">日付</label>
+      <input type="date" id="sDate">
       <div style="margin:8px 0">
-        <label><input type="radio" name="slot" value="昼" checked> 昼</label>
-        <label style="margin-left:16px"><input type="radio" name="slot" value="夜"> 夜</label>
+        <label><input type="radio" name="slot" value="昼" checked> 昼（10:00〜12:00）</label>
+        <label style="margin-left:16px"><input type="radio" name="slot" value="夜"> 夜（19:00〜21:00）</label>
       </div>
-      <input type="text" id="sPlace" placeholder="会場（任意）">
+      <label class="sub">会場</label>
+      <select id="sPlace">
+        <option value="武道館" selected>武道館</option>
+        <option value="まちなかコミュニティ２F第4講座室">まちなかコミュニティ２F第4講座室</option>
+      </select>
       <button class="btn" id="btnAddSession" style="margin-top:8px">登録</button>
       <p class="sub" style="margin-top:16px">月：<input type="text" id="sMonth" placeholder="2026-09" style="width:120px"> <button id="btnSessionsReload">表示</button></p>
-      <table><thead><tr><th>第</th><th>日付</th><th>昼夜</th><th>状態</th><th>人数</th><th></th></tr></thead><tbody id="sessionRows"></tbody></table>
+      <table><thead><tr><th>第</th><th>日付</th><th>昼夜</th><th>会場</th><th>状態</th><th>人数</th><th></th></tr></thead><tbody id="sessionRows"></tbody></table>
     </div>
 
     <div id="t-members" class="card hidden">
@@ -58,6 +63,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
+function slotLabel(t) { return t === '夜' ? '夜 19:00〜21:00' : '昼 10:00〜12:00'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
@@ -69,7 +75,7 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
 async function loadToday() {
   const r = await KickApi.call('admin.today');
   if (!r.ok) return msg(r.message, true);
-  $('todayHead').textContent = r.session ? '第' + r.session.通算番号 + '回 ' + r.session.日付 + '（' + r.session.時間帯 + '）' + (r.session.会場 || '') : '今日の開催はありません';
+  $('todayHead').textContent = r.session ? '第' + r.session.通算番号 + '回 ' + r.session.日付 + '（' + slotLabel(r.session.時間帯) + '）' + (r.session.会場 || '') : '今日の開催はありません';
   $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(String(a.日時).slice(11, 16)) + '</td><td>' + esc(a.表示名) + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + '</td><td>' + esc(a.支払い種別) + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">まだ出席がありません</td></tr>';
   $('cashTotal').textContent = r.cashTotal.toLocaleString();
   $('unpaidTotal').textContent = (r.unpaidTotal || 0).toLocaleString();
@@ -95,7 +101,7 @@ async function loadPending() {
 async function loadSessions() {
   const r = await KickApi.call('admin.sessions', { month: $('sMonth').value.trim() || undefined });
   if (!r.ok) return msg(r.message, true);
-  $('sessionRows').innerHTML = r.list.map(s => '<tr><td>' + esc(s.通算番号) + '</td><td>' + esc(s.日付) + '</td><td>' + esc(s.時間帯) + '</td><td>' + esc(s.状態) + '</td><td>' + esc(s.出席人数) + '</td><td>'
+  $('sessionRows').innerHTML = r.list.map(s => '<tr><td>' + esc(s.通算番号) + '</td><td>' + esc(s.日付) + '</td><td>' + esc(s.時間帯) + '</td><td>' + esc(s.会場) + '</td><td>' + esc(s.状態) + '</td><td>' + esc(s.出席人数) + '</td><td>'
     + (s.状態 !== '中止' ? '<button data-cancel="' + esc(s.開催ID) + '" data-date="' + esc(s.日付) + '" data-slot="' + esc(s.時間帯) + '" data-place="' + esc(s.会場) + '">中止</button>' : '') + '</td></tr>').join('');
   $('sessionRows').querySelectorAll('[data-cancel]').forEach(b => b.onclick = async () => {
     if (!confirm(b.dataset.date + ' ' + b.dataset.slot + ' を中止にしますか？')) return;
@@ -123,7 +129,7 @@ $('btnSessionsReload').onclick = loadSessions;
 $('btnMembersReload').onclick = loadMembers;
 $('btnAddSession').onclick = async () => {
   const slot = document.querySelector('input[name=slot]:checked').value;
-  const r = await KickApi.call('admin.upsertSession', { 日付: $('sDate').value.trim(), 時間帯: slot, 会場: $('sPlace').value.trim(), 状態: '予定' });
+  const r = await KickApi.call('admin.upsertSession', { 日付: $('sDate').value.trim(), 時間帯: slot, 会場: $('sPlace').value || '武道館', 状態: '予定' });
   msg(r.ok ? '登録しました' : r.message, !r.ok);
   if (r.ok) { $('sMonth').value = $('sDate').value.trim().slice(0, 7); loadSessions(); }
 };
