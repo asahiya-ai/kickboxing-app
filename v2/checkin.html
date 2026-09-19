@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>受付 | 佐世保キックボクシング倶楽部</title>
-<link rel="stylesheet" href="style.css?v=20260919h">
+<link rel="stylesheet" href="style.css?v=20260919i">
 </head>
 <body>
 <div class="wrap">
@@ -89,8 +89,8 @@
   </div>
 </div>
 
-<script src="config.js?v=20260919h"></script>
-<script src="api.js?v=20260919h"></script>
+<script src="config.js?v=20260919i"></script>
+<script src="api.js?v=20260919i"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -294,7 +294,7 @@ if (demoMode === '1' || demoMode === '2' || demoMode === '3') {
   });
   if (dayOf) {
     msg('デモ表示です（練習日当日・まだ押していない状態）。「出席する」を押しても記録されません', false);
-    $('btnCheckin').onclick = () => { msg('受付しました。残り 1 回。次の券をご用意ください。（デモ）', false); $('btnCheckin').classList.add('hidden'); $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです'; $('todayCount').textContent = '4'; $('todayNames').insertAdjacentHTML('beforeend', '<li>デモ太郎</li>'); };
+    $('btnCheckin').onclick = () => { msg('受付しました。残り 1 回。次の券をご用意ください。（デモ）', false); $('btnCheckin').classList.add('hidden'); $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです'; $('todayCount').textContent = '4'; $('todayNames').insertAdjacentHTML('beforeend', '<li>デモ太郎</li>'); $('doneLine').insertAdjacentHTML('afterend', '<button class="btn sec sm" id="btnDemoAgain">デモをやり直す（もう一度押せる状態に戻す）</button>'); $('btnDemoAgain').onclick = () => location.reload(); };
   } else if (full) {
     $('todayLabel').textContent = '今日は 第100回（昼 10:00〜12:00）';
     $('actionCard').classList.remove('hidden'); $('btnCheckin').classList.add('hidden');
