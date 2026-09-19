@@ -1,15 +1,16 @@
-:root { --main: #c62828; --bg: #fafafa; --ink: #222; --muted: #777; --line: #ddd; }
+:root { --main: #d63a2f; --navy: #173b8c; --yellow: #ffcf33; --bg: #f3f6fd; --ink: #1e2433; --muted: #6b7280; --line: #dbe1f0; }
 * { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: var(--bg); color: var(--ink); }
+body { margin: 0; font-family: "M PLUS Rounded 1c", system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; font-weight: 500; background: var(--bg); color: var(--ink); }
 .wrap { max-width: 480px; margin: 0 auto; padding: 16px; }
 h1 { font-size: 18px; margin: 0 0 12px; }
 h2 { font-size: 16px; margin: 0 0 8px; }
-.card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
 .big { font-size: 40px; font-weight: 700; line-height: 1.1; }
 .sub { color: var(--muted); font-size: 14px; }
-.btn { display: block; width: 100%; padding: 18px; font-size: 20px; font-weight: 700; color: #fff; background: var(--main); border: 0; border-radius: 12px; }
+.btn { display: block; width: 100%; padding: 18px; font-size: 20px; font-weight: 800; color: #fff; background: var(--main); border: 0; border-radius: 999px; box-shadow: 0 4px 0 #a52a21; letter-spacing: .02em; }
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #a52a21; }
 .btn:disabled { background: #bbb; }
-.btn.sec { background: #fff; color: var(--main); border: 2px solid var(--main); margin-top: 8px; }
+.btn.sec { background: #fff; color: var(--navy); border: 2px solid var(--navy); box-shadow: none; margin-top: 8px; }
 .btn.sm { padding: 10px; font-size: 15px; }
 .list { padding: 0; margin: 8px 0 0; list-style: none; }
 .list li { padding: 8px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
@@ -18,7 +19,7 @@ h2 { font-size: 16px; margin: 0 0 8px; }
 input[type=text], input[type=password], input[type=tel], input[type=date], select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
 .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
 .tabs button { flex: 1; padding: 10px; border: 1px solid var(--line); background: #fff; border-radius: 8px; }
-.tabs button.on { background: var(--main); color: #fff; border-color: var(--main); }
+.tabs button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 td, th { border-top: 1px solid var(--line); padding: 8px 4px; text-align: left; }
 .hidden { display: none; }
@@ -72,3 +73,22 @@ body.unpaid h1 { color: #fff; }
 body.unpaid .card { border-color: #ef9a9a; background: #fff5f5; }
 body.unpaid .unpaid-banner { background: #fff; color: var(--main); border: 3px solid #fff; }
 .recent { display:block; font-size: 16px; font-weight: 700; color: var(--ink); margin: 2px 0 4px; }
+
+/* ---- ブランド（ヘッダー・ヒーロー・アクション帯） ---- */
+.brand { background: var(--navy); color: #fff; }
+.brand-in { display: flex; align-items: center; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
+.brand-logo { width: 56px; height: 56px; border-radius: 50%; background: #fff; object-fit: cover; flex: none; box-shadow: 0 0 0 3px var(--yellow); }
+.brand-name { font-size: 15px; font-weight: 800; line-height: 1.2; }
+.brand-sub { font-size: 12px; color: var(--yellow); font-weight: 700; }
+.brand-link { margin-left: auto; color: #fff; font-size: 14px; text-decoration: underline; }
+.wrap > h1 { display: none; }
+.hero { position: relative; border-radius: 16px; overflow: hidden; margin: 4px 0 14px; box-shadow: 0 6px 18px rgba(23,59,140,.18); }
+.hero img { display: block; width: 100%; height: auto; }
+.hero-copy { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 14px 12px; color: #fff; font-weight: 800; font-size: 17px; text-shadow: 0 1px 6px rgba(0,0,0,.55); background: linear-gradient(transparent, rgba(23,59,140,.75)); }
+.card.action { background: var(--yellow); border-color: var(--yellow); padding: 14px; }
+.card.action .btn { box-shadow: 0 4px 0 #a52a21; }
+.card.action #doneLine { text-align: center; font-weight: 800; color: var(--navy); padding: 12px 0 4px; font-size: 18px; }
+.stat-num b { color: var(--main); }
+.cal-day.today { outline-color: var(--navy); }
+h2 { color: var(--navy); }
+details.card summary::before { color: var(--navy); }

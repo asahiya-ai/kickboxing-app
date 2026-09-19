@@ -4,11 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>管理 | 佐世保キックボクシング倶楽部</title>
-<link rel="stylesheet" href="style.css?v=20260919e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20260919j">
 </head>
 <body>
+<header class="brand">
+  <div class="wrap brand-in">
+    <img src="img/logo.png" alt="" class="brand-logo">
+    <div class="brand-text"><div class="brand-name">佐世保キックボクシング倶楽部</div><div class="brand-sub">管理画面</div></div>
+    <a href="checkin.html" class="brand-link">受付へ</a>
+  </div>
+</header>
 <div class="wrap">
-  <h1>管理画面 <a href="checkin.html" class="sub" style="float:right">受付へ</a></h1>
   <div id="msg" class="msg hidden"></div>
   <div id="gate" class="card">確認中…</div>
   <div id="app" class="hidden">
@@ -57,8 +65,8 @@
   </div>
 </div>
 
-<script src="config.js?v=20260919e"></script>
-<script src="api.js?v=20260919e"></script>
+<script src="config.js?v=20260919j"></script>
+<script src="api.js?v=20260919j"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
