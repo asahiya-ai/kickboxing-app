@@ -146,6 +146,10 @@ function actionMe(me) {
 function ticketView(me, mine, sessionsById) {
   var size = 5;
   var remaining = Number(me.残り回数) || 0;
+  var hasTicketUse = mine.some(function (a) { return a.支払い種別 === '券'; });
+  var hasPurchase = Repo.readAll('購入').some(function (p) { return p.会員ID === me.会員ID; });
+  // 券を買ったことも使ったことも無く残り0 ＝ 回数券を持っていない（①〜⑤は全部空）
+  if (remaining === 0 && !hasTicketUse && !hasPurchase) return { size: size, remaining: 0, used: [], none: true };
   var usedCount = Math.max(0, Math.min(size, size - remaining));
   var uses = mine.filter(function (a) { return a.支払い種別 === '券'; })
     .sort(function (a, b) { return a.日時 < b.日時 ? 1 : -1; })

@@ -152,7 +152,7 @@ function render(r) {
   } else {
     const t = r.ticket || { size: 5, remaining: r.remaining, used: [] };
     $('ticketLabel').textContent = '回数券';
-    $('remaining').innerHTML = '残り<b>' + t.remaining + '</b>回';
+    $('remaining').innerHTML = t.none ? '<span class="sub">回数券はまだありません</span>' : '残り<b>' + t.remaining + '</b>回';
     const circ = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
     let dots = '';
     for (let i = 0; i < t.size; i++) {
