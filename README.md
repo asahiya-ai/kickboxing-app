@@ -3,8 +3,8 @@
 
 ## v2（ブラウザ＋会場QR受付）2026-09-17〜
 
-- 会員画面: https://kohei0306.github.io/kickboxing-app/v2/checkin.html （会場の紙QRはこのURL）
-- 管理画面: https://kohei0306.github.io/kickboxing-app/v2/admin.html
+- 会員画面: https://asahiya-ai.com/kickboxing-app/v2/checkin.html （会場の紙QRはこのURL）
+- 管理画面: https://asahiya-ai.com/kickboxing-app/v2/admin.html
 - GAS: `gas/`（`clasp push` → `clasp create-deployment`。asahiya.kk）。秘密はスクリプトプロパティ `SHEET_ID` / `PIN_PEPPER`
 - シート: 「キック受付v2」（asahiya.kk）。タブは GAS の `setupSheets` が作る
 - テスト: `npm.cmd test`

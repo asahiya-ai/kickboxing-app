@@ -25,7 +25,7 @@
 - 日時は **GAS サーバー側の日本時間**（`appsscript.json` の `timeZone: Asia/Tokyo`）。端末の時計は使わない（§5.2）
 - `checkin` は冪等：同一開催ID＋会員ID で有効な出席があれば何もしない。LockService で排他（§6）
 - エラーは日本語の定型文。GAS の生エラーを返さない（§10）
-- リポジトリ `kohei0306/kickboxing-app` は **public**（2026-09-17 確認）。GitHub Pages は `main` 直下から配信 → **push ＝ 公開。push 前に耕平さんの承認を取る**
+- リポジトリ `asahiya-ai/kickboxing-app` は **public**（2026-09-17 確認）。GitHub Pages は `main` 直下から配信 → **push ＝ 公開。push 前に耕平さんの承認を取る**
 - 入会日＝初めて出席した日。通算参加回数・参加率は列に持たず毎回計算（§5.1）
 - 参加率の分母＝「入会日 ≤ 日付 ≤ 今日」かつ 状態≠中止 の開催数（Task 1 で §7 をこの定義に揃える）
 
@@ -1883,8 +1883,8 @@ Task 8 Step 4 で控えたウェブアプリの URL を `v2/config.js` の `GAS_
 
 ## v2（ブラウザ＋会場QR受付）2026-09-17〜
 
-- 会員画面: https://kohei0306.github.io/kickboxing-app/v2/checkin.html （会場の紙QRはこのURL）
-- 管理画面: https://kohei0306.github.io/kickboxing-app/v2/admin.html
+- 会員画面: https://asahiya-ai.com/kickboxing-app/v2/checkin.html （会場の紙QRはこのURL）
+- 管理画面: https://asahiya-ai.com/kickboxing-app/v2/admin.html
 - GAS: `gas/`（clasp push・asahiya.kk）。秘密はスクリプトプロパティ `SHEET_ID` / `PIN_PEPPER`
 - テスト: `npm.cmd test`
 - 仕様: `docs/spec-v2-line-checkin-2026-09-14.md`（v2.2）
@@ -1900,7 +1900,7 @@ git push origin main
 
 - [ ] **Step 4: 実機確認（耕平さんのスマホ）**
 
-1. `https://kohei0306.github.io/kickboxing-app/v2/checkin.html` を QR にして（無料の QR 生成サイトで可）スマホで読む
+1. `https://asahiya-ai.com/kickboxing-app/v2/checkin.html` を QR にして（無料の QR 生成サイトで可）スマホで読む
 2. 「はじめての方」に名前「ミヤさん」・暗証番号4桁 →［登録する］→ 承認待ち画面
 3. **管理者の初回だけ手作業**：新シート「会員」タブで、いま追加された行（M2）の `管理者` を `TRUE`、`状態` を `有効`、`区分` を `運営会員`、`入会日` を `2023-09-02` にする
 4. 受付画面を「更新」→ 通常画面。「管理画面を開く」リンクが出る

@@ -76,7 +76,7 @@ checkin（会員画面）
 
 | # | 作るもの | 置き場 |
 |---|---|---|
-| 1 | 会員画面 `checkin.html` | GitHub Pages（`kohei0306.github.io/kickboxing-app/v2/`。会場QRはこのURL） |
+| 1 | 会員画面 `checkin.html` | GitHub Pages（`asahiya-ai.com/kickboxing-app/v2/`。会場QRはこのURL） |
 | 2 | 管理画面 `admin.html` | 同上。同じ合鍵で開き、管理者フラグの無い人には出さない |
 | 3 | 受付GAS（新規プロジェクト） | clasp でコードを `app/kickboxing-app/gas/` に置き git 管理する |
 | 移行 | 移行スクリプト（GAS、1回だけ実行） | 同上 |
