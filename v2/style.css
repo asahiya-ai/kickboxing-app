@@ -40,3 +40,17 @@ details.card summary .sub { margin-left: 6px; }
 .cal-mark { font-size: 11px; line-height: 1; margin-top: 2px; color: var(--main); }
 .cal-day.off .cal-mark { color: #aaa; text-decoration: none; }
 label.sub { display:block; margin-top: 8px; }
+
+.cal-legend { margin-top: 8px; line-height: 1.7; }
+.stat-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 6px; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.stat-label { color: var(--muted); font-size: 13px; }
+.stat-num { font-size: 34px; font-weight: 700; line-height: 1.2; }
+.stat-num b { font-size: 44px; margin: 0 4px; color: var(--main); }
+.stat-unit { font-size: 16px; margin-left: 4px; }
+.ticket { display: flex; gap: 6px; margin-top: 8px; }
+.tk { flex: 1; text-align: center; border: 2px solid var(--line); border-radius: 8px; padding: 6px 0; color: var(--muted); }
+.tk.used { border-color: var(--main); background: #ffebee; color: var(--main); }
+.tk-n { font-size: 22px; line-height: 1; }
+.tk-d { font-size: 11px; margin-top: 4px; min-height: 13px; }
+@media (min-width: 420px) { .stat-row { grid-template-columns: 1fr 1fr; } .stat:first-child { grid-column: 1 / -1; } }

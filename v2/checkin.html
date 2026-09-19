@@ -42,8 +42,22 @@
     <div class="card" id="calendarCard"></div>
     <div class="card">
       <div class="sub" id="todayLabel"></div>
-      <div class="big" id="remaining"></div>
-      <div class="sub" id="statsLine"></div>
+      <div class="stat-row">
+        <div class="stat" id="statTicket">
+          <div class="stat-label" id="ticketLabel">回数券</div>
+          <div class="stat-num" id="remaining"></div>
+          <div class="ticket" id="ticketDots"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">通算参加</div>
+          <div class="stat-num"><span id="totalCount"></span><span class="stat-unit">回</span></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">参加率</div>
+          <div class="stat-num" id="rateNum"></div>
+          <div class="sub" id="sinceLine"></div>
+        </div>
+      </div>
     </div>
     <div class="card" id="actionCard">
       <button class="btn" id="btnCheckin">出席する</button>
@@ -115,22 +129,38 @@ function renderCalendar(r) {
       const live = list.filter(s => s.状態 !== '中止');
       const cancelled = list.length && !live.length;
       const cls = ['cal-day', key === r.todayStr ? 'today' : '', live.length ? 'on' : '', cancelled ? 'off' : ''].join(' ');
-      const mark = live.length ? '<div class="cal-mark">' + live.map(s => s.時間帯 === '夜' ? '夜' : '●').join('') + '</div>' : (cancelled ? '<div class="cal-mark">休</div>' : '');
+      const mark = live.length ? '<div class="cal-mark">' + live.map(s => s.時間帯 === '夜' ? '夜' : '昼').join('') + '</div>' : (cancelled ? '<div class="cal-mark">休</div>' : '');
       html += '<td class="' + cls + '"><div>' + d + '</div>' + mark + '</td>';
       if ((first.getDay() + d) % 7 === 0 && d !== days) html += '</tr><tr>';
     }
     html += '</tr></table></div>';
   });
-  $('calendarCard').innerHTML = html + '<div class="sub">● 昼の練習（10:00〜12:00）　夜 ＝ 夜の練習（19:00〜21:00）　休 ＝ 中止</div>';
+  $('calendarCard').innerHTML = html + '<div class="sub cal-legend"><div>昼 ＝ 昼の練習 <b>10:00〜12:00</b></div><div>夜 ＝ 夜の練習 <b>19:00〜21:00</b></div><div>休 ＝ 中止</div></div>';
 }
 
 function render(r) {
   renderCalendar(r);
   $('myName').textContent = r.displayName;
-  $('remaining').textContent = r.exempt ? '参加 ' + r.stats.total + ' 回目' : '残り ' + r.remaining + ' 回';
-  const rate = r.stats.rate === null ? '―' : r.stats.rate + '%';
-  const since = r.joinDate ? '（' + r.joinDate.slice(5).replace('-', '/') + '入会〜）' : '';
-  $('statsLine').textContent = '通算 ' + r.stats.total + ' 回参加 ／ 参加率 ' + rate + ' ' + since;
+  $('totalCount').textContent = r.stats.total;
+  $('rateNum').textContent = r.stats.rate === null ? '―' : r.stats.rate + '%';
+  $('sinceLine').textContent = r.joinDate ? r.joinDate.slice(0, 7).replace('-', '/') + '〜' : '';
+  if (r.exempt) {
+    $('ticketLabel').textContent = '区分';
+    $('remaining').textContent = r.kubun;
+    $('ticketDots').innerHTML = '';
+  } else {
+    const t = r.ticket || { size: 5, remaining: r.remaining, used: [] };
+    $('ticketLabel').textContent = '回数券';
+    $('remaining').innerHTML = '残り<b>' + t.remaining + '</b>回';
+    const circ = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+    let dots = '';
+    for (let i = 0; i < t.size; i++) {
+      const used = i < t.used.length;
+      const d = used && t.used[i] ? t.used[i].slice(5).replace('-', '/') : '';
+      dots += '<div class="tk' + (used ? ' used' : '') + '"><div class="tk-n">' + circ[i] + '</div><div class="tk-d">' + (used ? (d || '済') : '') + '</div></div>';
+    }
+    $('ticketDots').innerHTML = dots;
+  }
 
   if (r.today) {
     $('todayLabel').textContent = '今日は 第' + r.today.通算番号 + '回（' + slotLabel(r.today.時間帯) + '）';

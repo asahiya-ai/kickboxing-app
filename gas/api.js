@@ -133,12 +133,27 @@ function actionMe(me) {
     stats: stats,
     attendedToday: ctx.todays.some(function (a) { return a.会員ID === me.会員ID; }),
     history: history,
+    ticket: ticketView(me, mine, byId),
     today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯,
       count: me.状態 === '有効' ? ctx.todays.length : 0, names: me.状態 === '有効' ? ctx.todays.map(function (a) { return a.表示名; }) : [] } : null,
     next: nextSessionAfter(ctx.sessions, ctx.todayStr),
     calendar: calendarSessions(ctx.sessions, ctx.todayStr),
     todayStr: ctx.todayStr,
   };
+}
+
+// 今の回数券の見え方：券サイズ（既定5）・残り・使った回の日付（新しい順に「使った数」だけ）
+function ticketView(me, mine, sessionsById) {
+  var size = 5;
+  var remaining = Number(me.残り回数) || 0;
+  var usedCount = Math.max(0, Math.min(size, size - remaining));
+  var uses = mine.filter(function (a) { return a.支払い種別 === '券'; })
+    .sort(function (a, b) { return a.日時 < b.日時 ? 1 : -1; })
+    .slice(0, usedCount)
+    .map(function (a) { var s = sessionsById[a.開催ID] || {}; return s.日付 || String(a.日時).slice(0, 10); })
+    .reverse(); // 古い順（①から）
+  while (uses.length < usedCount) uses.unshift(''); // 移行前など日付が無い分
+  return { size: size, remaining: remaining, used: uses };
 }
 
 // 今月と来月の開催（カレンダー描画用。誰でも見てよい情報だけ）
