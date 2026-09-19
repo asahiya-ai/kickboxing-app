@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>受付 | 佐世保キックボクシング倶楽部</title>
-<link rel="stylesheet" href="style.css?v=20260919d">
+<link rel="stylesheet" href="style.css?v=20260919e">
 </head>
 <body>
 <div class="wrap">
   <h1>佐世保キックボクシング倶楽部 受付</h1>
+  <div id="unpaidBanner" class="unpaid-banner hidden"></div>
   <div id="msg" class="msg hidden"></div>
   <div id="loading" class="card">読み込み中…</div>
 
@@ -88,8 +89,8 @@
   </div>
 </div>
 
-<script src="config.js?v=20260919d"></script>
-<script src="api.js?v=20260919d"></script>
+<script src="config.js?v=20260919e"></script>
+<script src="api.js?v=20260919e"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -141,6 +142,10 @@ function renderCalendar(r) {
 }
 
 function render(r) {
+  // 未収があるあいだは画面全体を赤くして気づかせる
+  document.body.classList.toggle('unpaid', !r.exempt && r.unpaid > 0);
+  $('unpaidBanner').classList.toggle('hidden', !(r.unpaid > 0));
+  $('unpaidBanner').textContent = r.unpaid > 0 ? '券代 ' + r.unpaid.toLocaleString() + ' 円が未払いです。管理者にお支払いください' : '';
   renderCalendar(r);
   $('myName').textContent = r.displayName;
   $('totalCount').textContent = r.stats.total;
@@ -274,6 +279,7 @@ if (demoMode === '1' || demoMode === '2') {
       ? { size: 5, remaining: 0, used: [ym(m - 2 || 12) + '-08', ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26', todayStr] }
       : { size: 5, remaining: 2, used: [ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26'] },
     history: [{ 日付: ym(m) + '-26', 通算番号: 94, 種別: '券' }, { 日付: ym(m) + '-12', 通算番号: 92, 種別: '券' }, { 日付: ym(m - 1 || 12) + '-22', 通算番号: 90, 種別: '券' }],
+    unpaid: full ? 3980 : 0, ticketPrice: 3980,
     today: null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
     calendar: [{ 日付: ym(m) + '-12', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-26', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-17', 時間帯: '昼', 状態: '中止' },
       { 日付: ym(m + 1) + '-07', 時間帯: '夜', 状態: '予定' }, { 日付: ym(m + 1) + '-10', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m + 1) + '-14', 時間帯: '夜', 状態: '予定' }],

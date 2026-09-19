@@ -64,3 +64,10 @@ label.sub { display:block; margin-top: 8px; }
 .warn { margin: 10px 0 8px; padding: 8px 10px; background: #ffebee; color: #c62828; border-radius: 8px; font-weight: 700; }
 #ticketNote .btn { margin-top: 4px; }
 td.ops button { display: block; width: 100%; margin: 2px 0; font-size: 12px; }
+
+/* 未収あり：画面全体を赤系に */
+.unpaid-banner { background: var(--main); color: #fff; font-weight: 700; padding: 12px 14px; border-radius: 10px; margin-bottom: 12px; text-align: center; }
+body.unpaid { background: #c62828; }
+body.unpaid h1 { color: #fff; }
+body.unpaid .card { border-color: #ef9a9a; background: #fff5f5; }
+body.unpaid .unpaid-banner { background: #fff; color: var(--main); border: 3px solid #fff; }
