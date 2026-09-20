@@ -275,6 +275,7 @@ function handleAdmin(action, body, admin) {
     case 'admin.markPaid': return adminMarkPaid(body);
     case 'admin.purgeMembers': return adminPurgeMembers(body);
     case 'admin.merge': return adminMerge(body);
+    case 'admin.updateMember': return adminUpdateMember(body, admin);
     case 'admin.setupView': setupAttendanceView(); return { ok: true };
     case 'admin.purchase': return adminPurchase(body, admin);
     default: return { ok: false, message: '不明な操作です' };
@@ -596,4 +597,19 @@ function adminMerge(body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// 会員の区分・状態・表示名を変更（出席履歴は残る。退会にすると一覧とログインから消える）
+function adminUpdateMember(body, admin) {
+  var m = Repo.readAll('会員').filter(function (x) { return x.会員ID === body.会員ID; })[0];
+  if (!m) return { ok: false, message: '会員が見つかりません' };
+  var patch = {};
+  if (body.状態 && ['有効', '休会', '退会'].indexOf(body.状態) >= 0) patch.状態 = body.状態;
+  if (body.区分 && KUBUN_LIST.indexOf(body.区分) >= 0) patch.区分 = body.区分;
+  if (body.表示名) { var v = validateName(body.表示名); if (!v.ok) return v; patch.表示名 = v.name; }
+  if (!Object.keys(patch).length) return { ok: false, message: '変更する項目がありません' };
+  if (patch.状態 === '退会') { patch.トークン = ''; }
+  patch.備考 = (m.備考 || '') + ' / ' + formatDate(new Date()) + ' ' + Object.keys(patch).filter(function (k) { return k !== '備考' && k !== 'トークン'; }).map(function (k) { return k + '=' + patch[k]; }).join(',') + ' by ' + admin.会員ID;
+  Repo.update('会員', m._row, patch);
+  return { ok: true, message: m.表示名 + ' を更新しました' };
 }
