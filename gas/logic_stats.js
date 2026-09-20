@@ -25,4 +25,37 @@ function recentRate(sessions, attendances, memberId, joinDate, todayStr, months)
   return memberStats(sessions, attendances, memberId, fromStr, todayStr);
 }
 
-if (typeof module !== 'undefined') module.exports = { memberStats, recentRate };
+// 入会からの日数（入会日当日＝1日目）
+function daysSince(joinDate, todayStr) {
+  if (!joinDate) return null;
+  var a = new Date(joinDate + 'T00:00:00'), b = new Date(todayStr + 'T00:00:00');
+  return Math.round((b - a) / 86400000) + 1;
+}
+
+// お祝い：入会◯周年（記念日から14日間）と、通算の節目（10・30・50・100・150…、達成から14日間＝達成日の出席が今日を含め直近2週間）
+// 戻り値：[{ type:'anniversary'|'milestone', label, years|count }]
+var MILESTONES = [10, 30, 50, 100, 150, 200, 300, 500, 1000];
+function celebrations(joinDate, todayStr, attendanceDatesSorted) {
+  var out = [];
+  if (joinDate) {
+    var jy = Number(joinDate.slice(0, 4)), jm = joinDate.slice(5, 10);
+    var ty = Number(todayStr.slice(0, 4));
+    [ty - 1, ty].forEach(function (y) {
+      var years = y - jy;
+      if (years < 1) return;
+      var anniv = y + '-' + jm;
+      var diff = (new Date(todayStr + 'T00:00:00') - new Date(anniv + 'T00:00:00')) / 86400000;
+      if (diff >= 0 && diff < 14) out.push({ type: 'anniversary', years: years, label: '入会' + years + '周年おめでとう！' });
+    });
+  }
+  var total = attendanceDatesSorted.length;
+  MILESTONES.forEach(function (n) {
+    if (total < n) return;
+    var reached = attendanceDatesSorted[n - 1];
+    var diff = (new Date(todayStr + 'T00:00:00') - new Date(reached + 'T00:00:00')) / 86400000;
+    if (diff >= 0 && diff < 14) out.push({ type: 'milestone', count: n, label: '通算' + n + '回達成！' });
+  });
+  return out;
+}
+
+if (typeof module !== 'undefined') module.exports = { memberStats, recentRate, daysSince, celebrations, MILESTONES };

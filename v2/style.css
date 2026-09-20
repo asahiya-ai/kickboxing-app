@@ -92,3 +92,11 @@ body.unpaid .unpaid-banner { background: #fff; color: var(--main); border: 3px s
 .cal-day.today { outline-color: var(--navy); }
 h2 { color: var(--navy); }
 details.card summary::before { color: var(--navy); }
+
+/* お祝い（入会記念・節目） */
+.celebrate { position: relative; overflow: hidden; background: var(--yellow); color: var(--navy); border-radius: 14px; padding: 16px 12px; margin-bottom: 12px; text-align: center; box-shadow: 0 6px 18px rgba(255,207,51,.45); }
+.celebrate-line { font-size: 20px; font-weight: 800; line-height: 1.5; position: relative; z-index: 1; }
+.confetti { position: absolute; inset: 0; pointer-events: none; }
+.confetti i { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; opacity: .9; animation: fall 2.6s linear infinite; }
+@keyframes fall { 0% { transform: translateY(-20px) rotate(0); } 100% { transform: translateY(140px) rotate(360deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { memberStats, recentRate } = require('../gas/logic_stats.js');
+const { memberStats, recentRate, daysSince, celebrations } = require('../gas/logic_stats.js');
 
 const S = (id, date, status) => ({ 開催ID: id, 日付: date, 時間帯: '昼', 状態: status || '予定' });
 const A = (sid, mid, status) => ({ 出席ID: 'A' + sid + mid, 開催ID: sid, 会員ID: mid, 状態: status || '有効' });
@@ -31,4 +31,21 @@ test('recentRate は直近Nか月だけで計算（年またぎ・入会日よ�
   assert.deepEqual(recentRate(sessions, att, 'M1', '2025-01-01', '2026-01-30', 2), { total: 2, held: 3, attended: 1, rate: 33 });
   // 入会日が期間の途中なら入会日から
   assert.equal(recentRate(sessions, att, 'M1', '2026-01-20', '2026-01-30', 2).held, 1);
+});
+
+test('daysSince は入会日当日を1日目として数える', () => {
+  assert.equal(daysSince('2024-01-13', '2024-01-13'), 1);
+  assert.equal(daysSince('2024-01-13', '2024-01-14'), 2);
+  assert.equal(daysSince('', '2024-01-14'), null);
+});
+
+test('celebrations：入会◯周年は記念日から14日間、節目は達成日から14日間', () => {
+  const dates = [];
+  for (let i = 0; i < 12; i++) dates.push('2026-0' + (1 + Math.floor(i / 4)) + '-' + String(1 + (i % 4) * 7).padStart(2, '0'));
+  // 10回目の出席日 = dates[9] = 2026-03-08
+  assert.deepEqual(celebrations('2024-09-20', '2026-09-26', []), [{ type: 'anniversary', years: 2, label: '入会2周年おめでとう！' }]);
+  assert.deepEqual(celebrations('2024-09-20', '2026-10-05', []), []);
+  assert.deepEqual(celebrations('2026-09-20', '2026-09-26', []), []);
+  assert.deepEqual(celebrations('', '2026-03-10', dates), [{ type: 'milestone', count: 10, label: '通算10回達成！' }]);
+  assert.deepEqual(celebrations('', '2026-04-01', dates), []);
 });

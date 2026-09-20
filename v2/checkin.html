@@ -6,7 +6,7 @@
 <title>受付 | 佐世保キックボクシング倶楽部</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260921a">
+<link rel="stylesheet" href="style.css?v=20260921b">
 </head>
 <body>
 <header class="brand">
@@ -16,6 +16,7 @@
   </div>
 </header>
 <div class="wrap">
+  <div id="celebrate" class="celebrate hidden"></div>
   <div id="unpaidBanner" class="unpaid-banner hidden"></div>
   <div id="msg" class="msg hidden"></div>
   <div id="loading" class="card">読み込み中…</div>
@@ -65,6 +66,7 @@
         <div class="stat">
           <div class="stat-label">通算参加</div>
           <div class="stat-num"><span id="totalCount"></span><span class="stat-unit">回</span></div>
+          <div class="sub" id="joinLine"></div>
         </div>
         <div class="stat">
           <div class="stat-label">参加率</div>
@@ -101,8 +103,8 @@
   </div>
 </div>
 
-<script src="config.js?v=20260921a"></script>
-<script src="api.js?v=20260921a"></script>
+<script src="config.js?v=20260921b"></script>
+<script src="api.js?v=20260921b"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -126,6 +128,13 @@ async function load() {
   }
   render(r);
   show('v-main');
+}
+
+function renderCelebrations(list) {
+  const el = $('celebrate');
+  if (!list.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.innerHTML = list.map(c => '<div class="celebrate-line">🎉 ' + esc(c.label) + ' 🎉</div>').join('') + '<div class="confetti">' + Array.from({ length: 24 }, (_, i) => '<i style="left:' + (i * 4.2) + '%;animation-delay:' + (i % 6) * 0.35 + 's;background:' + ['#ffcf33', '#d63a2f', '#173b8c', '#fff'][i % 4] + '"></i>').join('') + '</div>';
+  el.classList.remove('hidden');
 }
 
 function renderCalendar(r) {
@@ -167,6 +176,8 @@ function render(r) {
   renderCalendar(r);
   $('myName').textContent = r.displayName;
   $('totalCount').textContent = r.stats.total;
+  $('joinLine').textContent = r.joinDate ? r.joinDate.replace(/-0?/g, '/').replace(/^(\d+)\//, '$1/') + ' 入会' + (r.days ? '（' + r.days.toLocaleString() + '日目）' : '') : '';
+  renderCelebrations(r.celebrations || []);
   $('rateNum').textContent = r.stats.rate === null ? '―' : r.stats.rate + '%';
   const rc = r.recent || { rate: null };
   $('sinceLine').innerHTML = '<span class="recent">（直近2か月 ' + (rc.rate === null ? '―' : rc.rate + '%') + '）</span>' + (r.joinDate ? '<span class="sub">' + r.joinDate.slice(0, 7).replace('-', '/') + '〜</span>' : '');
@@ -299,7 +310,8 @@ if (demoMode === '1' || demoMode === '2' || demoMode === '3') {
       ? { size: 5, remaining: 0, used: [ym(m - 2 || 12) + '-08', ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26', todayStr] }
       : { size: 5, remaining: 2, used: [ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26'] },
     history: [{ 日付: ym(m) + '-26', 通算番号: 94, 種別: '券' }, { 日付: ym(m) + '-12', 通算番号: 92, 種別: '券' }, { 日付: ym(m - 1 || 12) + '-22', 通算番号: 90, 種別: '券' }],
-    unpaid: full ? 3980 : 0, ticketPrice: 3980,
+    unpaid: full ? 3980 : 0, ticketPrice: 3980, days: 981,
+    celebrations: dayOf ? [{ type: 'anniversary', years: 2, label: '入会2周年おめでとう！' }] : (full ? [{ type: 'milestone', count: 30, label: '通算30回達成！' }] : []),
     today: dayOf ? { 開催ID: 'KDEMO', 通算番号: 94, 時間帯: '昼', count: 3, names: ['ミヤさん', 'ノブさん', '空手のジョーさん'] } : null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
     calendar: [{ 日付: ym(m) + '-12', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-26', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-17', 時間帯: '昼', 状態: '中止' },
       { 日付: ym(m + 1) + '-07', 時間帯: '夜', 状態: '予定' }, { 日付: ym(m + 1) + '-10', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m + 1) + '-14', 時間帯: '夜', 状態: '予定' }],

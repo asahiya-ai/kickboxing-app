@@ -161,6 +161,8 @@ function actionMe(me) {
     joinDate: me.入会日 || '',
     stats: stats,
     recent: recentRate(ctx.sessions, ctx.attendances, me.会員ID, me.入会日, ctx.todayStr, 2),
+    days: daysSince(me.入会日, ctx.todayStr),
+    celebrations: celebrations(me.入会日, ctx.todayStr, mine.map(function (a) { var s = byId[a.開催ID] || {}; return s.日付 || String(a.日時).slice(0, 10); }).sort()),
     attendedToday: ctx.todays.some(function (a) { return a.会員ID === me.会員ID; }),
     history: history,
     ticket: ticketView(me, mine, byId),
@@ -284,6 +286,10 @@ function handleAdmin(action, body, admin) {
 
 function adminToday() {
   var ctx = todayContext();
+  var memberById = {};
+  Repo.readAll('会員').forEach(function (m) { memberById[m.会員ID] = m; });
+  var sessById = {};
+  ctx.sessions.forEach(function (s) { sessById[s.開催ID] = s; });
   var purchases = Repo.readAll('購入');
   var unpaidByMember = {};
   purchases.forEach(function (p) {
@@ -295,7 +301,11 @@ function adminToday() {
     ok: true,
     session: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 日付: ctx.session.日付, 時間帯: ctx.session.時間帯, 会場: ctx.session.会場 } : null,
     list: ctx.todays.map(function (a) {
-      return { 出席ID: a.出席ID, 日時: a.日時, 表示名: a.表示名, 支払い種別: a.支払い種別, 金額: a.金額, 記録方法: a.記録方法, unpaid: unpaidByMember[a.会員ID] || 0 };
+      var m = memberById[a.会員ID] || {};
+      var mine = ctx.attendances.filter(function (x) { return x.会員ID === a.会員ID && x.状態 === '有効'; })
+        .map(function (x) { var s = sessById[x.開催ID] || {}; return s.日付 || String(x.日時).slice(0, 10); }).sort();
+      return { 出席ID: a.出席ID, 日時: a.日時, 表示名: a.表示名, 支払い種別: a.支払い種別, 金額: a.金額, 記録方法: a.記録方法, unpaid: unpaidByMember[a.会員ID] || 0,
+        celebrate: celebrations(m.入会日, ctx.todayStr, mine).map(function (c) { return c.label; }) };
     }),
     cashTotal: ctx.todays.reduce(function (sum, a) { return sum + (Number(a.金額) || 0); }, 0),
     unpaidTotal: unpaidTotal,
