@@ -273,6 +273,8 @@ function handleAdmin(action, body, admin) {
     case 'admin.cleanup': return { ok: true, deleted: Repo.deleteBlankRows('会員') };
     case 'admin.repairMissing': return adminRepairMissing(body);
     case 'admin.markPaid': return adminMarkPaid(body);
+    case 'admin.purgeMembers': return adminPurgeMembers(body);
+    case 'admin.merge': return adminMerge(body);
     case 'admin.setupView': setupAttendanceView(); return { ok: true };
     case 'admin.purchase': return adminPurchase(body, admin);
     default: return { ok: false, message: '不明な操作です' };
@@ -540,6 +542,57 @@ function adminPurchase(body, admin) {
     var newRemaining = (Number(m.残り回数) || 0) + prices[code].付与回数;
     Repo.update('会員', m._row, { 残り回数: newRemaining });
     return { ok: true, message: m.表示名 + ' に5回付与しました（残り ' + newRemaining + ' 回・' + (paid ? '入金済み' : '未収') + '）' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 誤って新規登録された会員行を物理削除する（出席が無い行だけ）。その会員の購入行も削除
+function adminPurgeMembers(body) {
+  var ids = (body.ids || []).map(String);
+  if (!ids.length) return { ok: false, message: 'IDがありません' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var attended = {};
+    Repo.readAll('出席').forEach(function (a) { attended[a.会員ID] = true; });
+    var blocked = ids.filter(function (id) { return attended[id]; });
+    if (blocked.length) return { ok: false, message: '出席があるため削除できません: ' + blocked.join(',') };
+    var book = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SHEET_ID'));
+    var removed = { 会員: [], 購入: [] };
+    ['購入', '会員'].forEach(function (tab) {
+      var sh = book.getSheetByName(tab);
+      var rows = Repo.readAll(tab).filter(function (r) { return ids.indexOf(String(r.会員ID)) >= 0; })
+        .sort(function (a, b) { return b._row - a._row; }); // 下から消す
+      rows.forEach(function (r) { sh.deleteRow(r._row); removed[tab].push(tab === '会員' ? r.表示名 : r.購入ID); });
+    });
+    return { ok: true, removed: removed };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 同一人物の2行を1行にまとめる：from の出席・購入を to に付け替え、残り回数を合算、合鍵は to に無ければ移す。from 行は削除
+function adminMerge(body) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var members = Repo.readAll('会員');
+    var from = members.filter(function (m) { return m.会員ID === body.fromId; })[0];
+    var to = members.filter(function (m) { return m.会員ID === body.toId; })[0];
+    if (!from || !to || from.会員ID === to.会員ID) return { ok: false, message: 'IDが不正です' };
+    var moved = { 出席: 0, 購入: 0 };
+    Repo.readAll('出席').forEach(function (a) { if (a.会員ID === from.会員ID) { Repo.update('出席', a._row, { 会員ID: to.会員ID, 表示名: to.表示名 }); moved.出席++; } });
+    Repo.readAll('購入').forEach(function (p) { if (p.会員ID === from.会員ID) { Repo.update('購入', p._row, { 会員ID: to.会員ID }); moved.購入++; } });
+    var patch = { 残り回数: (Number(to.残り回数) || 0) + (Number(from.残り回数) || 0), 備考: (to.備考 || '') + ' / 統合 ' + from.会員ID + '(' + from.表示名 + ')' };
+    if (!to.トークン && from.トークン) { patch.トークン = from.トークン; patch.暗証番号ハッシュ = from.暗証番号ハッシュ; }
+    if (!to.入会日 && from.入会日) patch.入会日 = from.入会日;
+    if (to.入会日 && from.入会日 && from.入会日 < to.入会日) patch.入会日 = from.入会日;
+    if (to.状態 !== '有効' && from.状態 === '有効') patch.状態 = '有効';
+    Repo.update('会員', to._row, patch);
+    var book = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SHEET_ID'));
+    book.getSheetByName('会員').deleteRow(from._row);
+    return { ok: true, message: from.表示名 + ' → ' + to.表示名 + ' に統合（出席' + moved.出席 + '・購入' + moved.購入 + '・残り' + patch.残り回数 + '）' };
   } finally {
     lock.releaseLock();
   }
