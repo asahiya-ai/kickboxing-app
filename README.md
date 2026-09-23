@@ -8,6 +8,7 @@
 - GAS: `gas/`（`clasp push` → `clasp create-deployment`。asahiya.kk）。秘密はスクリプトプロパティ `SHEET_ID` / `PIN_PEPPER`
 - シート: 「キック受付v2」（asahiya.kk）。タブは GAS の `setupSheets` が作る
 - テスト: `npm.cmd test`
+- **画面のCSSを直したら `npm.cmd run build`**（`v2/style.css` を各HTMLの `<style id="app-css">` に埋め込む。外部CSSは拡張機能にブロックされたりキャッシュがズレると色が出ないため）
 - 仕様: `docs/spec-v2-line-checkin-2026-09-14.md`（v2.2）／計画: `docs/superpowers/plans/2026-09-17-kickboxing-v2-mvp1.md`
 - 旧アプリ `index.html` は移行完了まで並走
 
