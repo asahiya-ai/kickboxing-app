@@ -46,6 +46,12 @@ function decideCheckin(input) {
     return Object.assign(base, { ok: true, attendance: { 支払い種別: '免除', 金額: 0, 消化: false }, remainingAfter: remaining });
   }
 
+  // 初回で、先にこのアプリで券を買っている（本人の［5回券を買う］や管理者の付与）＝入会日。初回は無料なので消化しない。
+  // 購入記録が無い残り（旧アプリからの持ち越し）は通常どおり消化する
+  if (isFirst && remaining >= 1 && input.hasPurchase) {
+    return Object.assign(base, { ok: true, attendance: { 支払い種別: '入会', 金額: 0, 消化: false }, remainingAfter: remaining });
+  }
+
   if (remaining >= 1) {
     return Object.assign(base, { ok: true, attendance: { 支払い種別: '券', 金額: 0, 消化: true }, remainingAfter: remaining - 1 });
   }

@@ -133,7 +133,7 @@ details.card summary::before { color: var(--navy); }
       <div id="todayHead" class="sub"></div>
       <table><thead><tr><th>時刻</th><th>名前</th><th>種別</th><th>金額</th></tr></thead><tbody id="todayRows"></tbody></table>
       <p><b>本日の受け取り合計：<span id="cashTotal">0</span> 円</b></p>
-      <p>未収合計：<span id="unpaidTotal">0</span> 円</p>
+      <p>今日来た人の未収：<span id="todayUnpaid">0</span> 円<br><span class="sub">全体の未収（今日来ていない人・過去の分も含む）：<span id="unpaidTotal">0</span> 円</span></p>
       <button class="btn sec sm" id="btnTodayReload">更新</button>
     </div>
 
@@ -188,6 +188,7 @@ async function loadToday() {
   $('todayHead').textContent = r.session ? '第' + r.session.通算番号 + '回 ' + r.session.日付 + '（' + slotLabel(r.session.時間帯) + '）' + (r.session.会場 || '') : '今日の開催はありません';
   $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(String(a.日時).slice(11, 16)) + '</td><td>' + esc(a.表示名) + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + ((a.celebrate || []).length ? '<div style="color:#b8860b;font-size:12px;font-weight:700">🎉 ' + esc(a.celebrate.join('・')) + '</div>' : '') + '</td><td>' + esc(a.支払い種別) + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">まだ出席がありません</td></tr>';
   $('cashTotal').textContent = r.cashTotal.toLocaleString();
+  $('todayUnpaid').textContent = (r.todayUnpaid || 0).toLocaleString();
   $('unpaidTotal').textContent = (r.unpaidTotal || 0).toLocaleString();
 }
 
@@ -223,10 +224,12 @@ async function loadSessions() {
 async function loadMembers() {
   const r = await KickApi.call('admin.members');
   if (!r.ok) return msg(r.message, true);
-  $('memberRows').innerHTML = r.list.map(m => '<tr><td>' + esc(m.表示名) + (m.locked ? ' 🔒' : '') + (m.未収 > 0 ? '<div style="color:#c62828;font-size:12px">🔴 未収 ' + Number(m.未収).toLocaleString() + '円</div>' : '') + '</td><td>' + esc(m.区分) + '</td><td>' + esc(m.状態) + '</td><td>' + esc(m.残り回数) + '</td><td class="ops">'
+  $('memberRows').innerHTML = r.list.map(m => '<tr><td>' + esc(m.表示名) + (m.locked ? ' 🔒' : '') + '<div class="sub" style="font-size:12px">' + esc(m.会員ID) + '・通算' + esc(m.通算) + '回' + (m.登録 ? '・登録 ' + esc(m.登録) : '') + '</div>' + (m.未収 > 0 ? '<div style="color:#c62828;font-size:12px">🔴 未収 ' + Number(m.未収).toLocaleString() + '円</div>' : '') + '</td><td>' + esc(m.区分) + '</td><td>' + esc(m.状態) + '</td><td>' + esc(m.残り回数) + '</td><td class="ops">'
     + (m.未収 > 0 ? '<button data-paid="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-amt="' + m.未収 + '">入金済みにする</button>' : '')
     + '<button data-grant="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">券を付与</button>'
-    + '<button data-reset="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">番号リセット</button></td></tr>').join('');
+    + '<button data-remain="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-now="' + esc(m.残り回数) + '">残り回数を直す</button>'
+    + '<button data-reset="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">番号リセット</button>'
+    + '<button data-del="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" style="color:#c62828">誤登録を削除</button></td></tr>').join('');
   $('memberRows').querySelectorAll('[data-paid]').forEach(b => b.onclick = async () => {
     if (!confirm(b.dataset.name + ' の未収 ' + Number(b.dataset.amt).toLocaleString() + '円 を入金済みにしますか？')) return;
     const rr = await KickApi.call('admin.markPaid', { 会員ID: b.dataset.paid });
@@ -237,6 +240,29 @@ async function loadMembers() {
     if (!paid && !confirm('未収（後払い）として付与しますか？')) return;
     const rr = await KickApi.call('admin.purchase', { 会員ID: b.dataset.grant, paid });
     msg(rr.message, !rr.ok); loadMembers();
+  });
+  $('memberRows').querySelectorAll('[data-remain]').forEach(b => b.onclick = async () => {
+    const v = prompt(b.dataset.name + ' の残り回数（今 ' + b.dataset.now + ' 回）を何回に直しますか？（お金の記録は変わりません）', b.dataset.now);
+    if (v === null) return;
+    const rr = await KickApi.call('admin.setRemaining', { 会員ID: b.dataset.remain, 残り回数: v });
+    msg(rr.message, !rr.ok); loadMembers();
+  });
+  $('memberRows').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const pre = await KickApi.call('admin.deleteMember', { 会員ID: b.dataset.del, dryRun: true });
+      if (!pre.ok) return msg(pre.message, true);
+      const sm = pre.summary;
+      const lines = [sm.表示名 + '（' + b.dataset.del + '）を削除します。一緒に消えるもの：',
+        '・出席 ' + sm.出席.length + '件' + (sm.出席.length ? '：' + sm.出席.join('、') : ''),
+        '・購入 ' + sm.購入.length + '件' + (sm.購入.length ? '：' + sm.購入.join('、') : ''),
+        '', '元に戻せません。よろしいですか？'];
+      if (!confirm(lines.join('\n'))) return;
+      if (!confirm('最終確認：本当に ' + sm.表示名 + '（' + b.dataset.del + '）を削除しますか？')) return;
+      msg('削除しています…（そのままお待ちください）');
+      const rr = await KickApi.call('admin.deleteMember', { 会員ID: b.dataset.del });
+      msg(rr.message, !rr.ok); loadMembers();
+    } finally { b.disabled = false; }
   });
   $('memberRows').querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
     const pin = prompt(b.dataset.name + ' の新しい暗証番号（4桁）を入力');

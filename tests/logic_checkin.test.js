@@ -100,9 +100,19 @@ test('料金表が欠けていれば拒否（未収発生前に止める）', ()
   assert.match(r.message, /料金表/);
 });
 
-test('初回でも残りがあれば（管理者が先に券を付与）券を消化し入会日もセット', () => {
-  const r = decideCheckin({ member: member({ 入会日: '', 残り回数: 5 }), session, alreadyAttended: false, prices, choice: null });
+test('初回で、先にこのアプリで券を買っていれば入会扱い（無料・消化なし）で入会日もセット', () => {
+  const r = decideCheckin({ member: member({ 入会日: '', 残り回数: 5 }), session, alreadyAttended: false, prices, choice: null, hasPurchase: true });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.attendance, { 支払い種別: '入会', 金額: 0, 消化: false });
+  assert.equal(r.remainingAfter, 5);
+  assert.equal(r.purchase, null);
+  assert.equal(r.setJoinDate, true);
+});
+
+test('初回でも購入記録が無い残り（旧アプリからの持ち越し）は券を消化', () => {
+  const r = decideCheckin({ member: member({ 入会日: '', 残り回数: 3 }), session, alreadyAttended: false, prices, choice: null, hasPurchase: false });
   assert.equal(r.attendance.支払い種別, '券');
+  assert.equal(r.remainingAfter, 2);
   assert.equal(r.setJoinDate, true);
 });
 

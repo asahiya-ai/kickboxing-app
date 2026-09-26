@@ -18,7 +18,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-09-19-13' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-09-26-1' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -231,8 +231,9 @@ function actionCheckin(me, body) {
     var fresh = members.filter(function (m) { return m.会員ID === me.会員ID; })[0] || me;
     var ctx = todayContext();
     var already = ctx.session ? ctx.todays.some(function (a) { return a.会員ID === fresh.会員ID; }) : false;
+    var hasPurchase = Repo.readAll('購入').some(function (p) { return p.会員ID === fresh.会員ID; });
     var decision = decideCheckin({
-      member: fresh, session: ctx.session, alreadyAttended: already, prices: Repo.prices(), choice: body.choice || null,
+      member: fresh, session: ctx.session, alreadyAttended: already, prices: Repo.prices(), choice: body.choice || null, hasPurchase: hasPurchase,
     });
     if (!decision.ok) return decision;
 
@@ -280,6 +281,8 @@ function handleAdmin(action, body, admin) {
     case 'admin.updateMember': return adminUpdateMember(body, admin);
     case 'admin.setupView': setupAttendanceView(); return { ok: true };
     case 'admin.purchase': return adminPurchase(body, admin);
+    case 'admin.setRemaining': return adminSetRemaining(body, admin);
+    case 'admin.deleteMember': return adminDeleteMember(body, admin);
     default: return { ok: false, message: '不明な操作です' };
   }
 }
@@ -308,6 +311,7 @@ function adminToday() {
         celebrate: celebrations(m.入会日, ctx.todayStr, mine).map(function (c) { return c.label; }) };
     }),
     cashTotal: ctx.todays.reduce(function (sum, a) { return sum + (Number(a.金額) || 0); }, 0),
+    todayUnpaid: todayUnpaidTotal(ctx.todays, purchases),
     unpaidTotal: unpaidTotal,
   };
 }
@@ -398,7 +402,7 @@ function adminMembers() {
     ok: true,
     list: members.filter(function (m) { return m.状態 !== '退会'; }).map(function (m) {
       return { 会員ID: m.会員ID, 表示名: m.表示名, 区分: m.区分, 状態: m.状態, 残り回数: m.残り回数, 入会日: m.入会日, 通算: total[m.会員ID] || 0, 未収: unpaid[m.会員ID] || 0,
-        ログイン失敗: Number(m.ログイン失敗) || 0, locked: isLocked(m.ログイン失敗), hasToken: !!m.トークン };
+        ログイン失敗: Number(m.ログイン失敗) || 0, locked: isLocked(m.ログイン失敗), hasToken: !!m.トークン, 登録: (String(m.備考).match(/登録 (\d{4}-\d{2}-\d{2})/) || [])[1] || '' };
     }),
   };
 }
@@ -622,4 +626,58 @@ function adminUpdateMember(body, admin) {
   patch.備考 = (m.備考 || '') + ' / ' + formatDate(new Date()) + ' ' + Object.keys(patch).filter(function (k) { return k !== '備考' && k !== 'トークン'; }).map(function (k) { return k + '=' + patch[k]; }).join(',') + ' by ' + admin.会員ID;
   Repo.update('会員', m._row, patch);
   return { ok: true, message: m.表示名 + ' を更新しました' };
+}
+
+// 残り回数を正しい値に上書きする（購入記録・お金には触らない）。変更前後を備考に残す
+function adminSetRemaining(body, admin) {
+  var v = validateRemaining(body.残り回数);
+  if (!v.ok) return v;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var m = Repo.readAll('会員').filter(function (x) { return x.会員ID === body.会員ID; })[0];
+    if (!m) return { ok: false, message: '会員が見つかりません' };
+    var before = Number(m.残り回数) || 0;
+    if (before === v.value) return { ok: false, message: 'すでに残り ' + before + ' 回です' };
+    Repo.update('会員', m._row, { 残り回数: v.value,
+      備考: (m.備考 || '') + ' / ' + formatDate(new Date()) + ' 残り' + before + '→' + v.value + ' by ' + admin.会員ID });
+    return { ok: true, message: m.表示名 + ' の残り回数を ' + before + ' → ' + v.value + ' 回に直しました' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 誤登録の会員を、その会員の出席・購入ごと削除する。dryRun なら消す中身だけ返す
+function adminDeleteMember(body, admin) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var attendances = Repo.readAll('出席');
+    var purchases = Repo.readAll('購入');
+    var plan = planMemberDeletion({ memberId: String(body.会員ID || ''), adminId: admin.会員ID,
+      members: Repo.readAll('会員'), attendances: attendances, purchases: purchases });
+    if (!plan.ok) return plan;
+    var sessById = {};
+    Repo.readAll('開催').forEach(function (s) { sessById[s.開催ID] = s; });
+    var summary = {
+      表示名: plan.member.表示名,
+      出席: plan.attendance.map(function (a) { var s = sessById[a.開催ID] || {}; return (s.日付 || String(a.日時).slice(0, 10)) + ' ' + (a.支払い種別 || ''); }),
+      購入: plan.purchases.map(function (p) { return p.種別 + ' ' + (Number(p.金額) || 0).toLocaleString() + '円（' + p.入金 + '）'; }),
+    };
+    if (body.dryRun) return { ok: true, dryRun: true, summary: summary };
+
+    var book = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SHEET_ID'));
+    var removedIds = plan.attendance.map(function (a) { return a.出席ID; });
+    [['出席', plan.attendance], ['購入', plan.purchases], ['会員', [plan.member]]].forEach(function (pair) {
+      var sh = book.getSheetByName(pair[0]);
+      pair[1].slice().sort(function (a, b) { return b._row - a._row; }) // 下から消す（行番号がずれないように）
+        .forEach(function (r) { sh.deleteRow(r._row); });
+    });
+    var counts = recountSessions(plan.sessionIds, attendances, removedIds);
+    Repo.readAll('開催').forEach(function (s) { if (counts.hasOwnProperty(s.開催ID)) Repo.update('開催', s._row, { 出席人数: counts[s.開催ID] }); });
+    console.log('deleteMember ' + plan.member.会員ID + ' ' + plan.member.表示名 + ' by ' + admin.会員ID + ' ' + JSON.stringify(summary));
+    return { ok: true, message: plan.member.表示名 + ' を削除しました（出席' + plan.attendance.length + '件・購入' + plan.purchases.length + '件も削除）' };
+  } finally {
+    lock.releaseLock();
+  }
 }
