@@ -109,6 +109,10 @@ details.card summary::before { color: var(--navy); }
 .confetti i { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; opacity: .9; animation: fall 2.6s linear infinite; }
 @keyframes fall { 0% { transform: translateY(-20px) rotate(0); } 100% { transform: translateY(140px) rotate(360deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+
+/* HP・グッズへのリンク（画面の一番下） */
+.club-links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 24px; }
+.club-links .btn { margin-top: 0; text-align: center; text-decoration: none; }
 </style>
 </head>
 <body>

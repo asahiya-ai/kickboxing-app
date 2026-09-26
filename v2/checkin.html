@@ -109,6 +109,10 @@ details.card summary::before { color: var(--navy); }
 .confetti i { position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; opacity: .9; animation: fall 2.6s linear infinite; }
 @keyframes fall { 0% { transform: translateY(-20px) rotate(0); } 100% { transform: translateY(140px) rotate(360deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+
+/* HP・グッズへのリンク（画面の一番下） */
+.club-links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 24px; }
+.club-links .btn { margin-top: 0; text-align: center; text-decoration: none; }
 </style>
 </head>
 <body>
@@ -156,8 +160,13 @@ details.card summary::before { color: var(--navy); }
 
   <!-- 通常 -->
   <div id="v-main" class="hidden">
-    <div class="card" id="calendarCard"></div>
+    <div class="card action" id="actionCard">
+      <button class="btn" id="btnCheckin">出席する</button>
+      <div id="choices" class="hidden"></div>
+      <div id="doneLine" class="hidden"></div>
+    </div>
     <div class="card">
+      <h2 id="myPageTitle">マイページ</h2>
       <div class="sub" id="todayLabel"></div>
       <div class="stat-row">
         <div class="stat" id="statTicket">
@@ -178,19 +187,16 @@ details.card summary::before { color: var(--navy); }
         </div>
       </div>
     </div>
-    <div class="card action" id="actionCard">
-      <button class="btn" id="btnCheckin">出席する</button>
-      <div id="choices" class="hidden"></div>
-      <div id="doneLine" class="hidden"></div>
-    </div>
-    <div class="card">
+    <details class="card" open>
+      <summary><b>参加した日</b><span class="sub" id="historyCount"></span></summary>
+      <ul class="list" id="history"></ul>
+      <button class="btn sec sm hidden" id="btnHistoryAll">すべて表示</button>
+    </details>
+    <div class="card" id="todayCard">
       <b>今日の出席 <span id="todayCount">0</span>名</b>
       <ul class="list" id="todayNames"></ul>
     </div>
-    <details class="card">
-      <summary><b>参加履歴</b><span class="sub" id="historyCount"></span></summary>
-      <ul class="list" id="history"></ul>
-    </details>
+    <div class="card" id="calendarCard"></div>
     <details class="card">
       <summary><b>設定</b><span class="sub">（表示名・暗証番号・ログアウト）</span></summary>
       <p class="sub">表示名：<span id="myName"></span></p>
@@ -204,6 +210,11 @@ details.card summary::before { color: var(--navy); }
       <p class="sub hidden" id="adminLink"></p>
     </details>
   </div>
+
+  <nav class="club-links">
+    <a class="btn sec sm" href="https://web-blend.com/" target="_blank" rel="noopener">倶楽部のホームページ</a>
+    <a class="btn sec sm" href="https://web-blend.com/mygoods.html" target="_blank" rel="noopener">グッズ</a>
+  </nav>
 </div>
 
 <script src="config.js?v=20260921b"></script>
@@ -324,6 +335,7 @@ function render(r) {
     $('todayCount').textContent = r.today.count;
     $('todayNames').innerHTML = r.today.names.map(n => '<li>' + esc(n) + '</li>').join('');
     $('actionCard').classList.remove('hidden');
+    $('todayCard').classList.remove('hidden');
     $('btnCheckin').classList.toggle('hidden', r.attendedToday);
     $('doneLine').classList.toggle('hidden', !r.attendedToday);
     $('doneLine').textContent = '本日は受付済みです';
@@ -332,9 +344,15 @@ function render(r) {
     $('todayCount').textContent = '0';
     $('todayNames').innerHTML = '';
     $('actionCard').classList.add('hidden');
+    $('todayCard').classList.add('hidden');
   }
-  $('historyCount').textContent = '（' + r.history.length + '件）';
-  $('history').innerHTML = r.history.map(h => '<li><span>' + esc(h.日付) + (h.通算番号 ? ' 第' + h.通算番号 + '回' : '') + '</span><span>' + esc(h.種別) + '</span></li>').join('') || '<li class="sub">まだありません</li>';
+  $('myPageTitle').textContent = r.displayName + ' のマイページ';
+  $('historyCount').textContent = '（' + r.history.length + '回・新しい順）';
+  const HISTORY_SHOW = 10;
+  const historyRows = r.history.map(h => '<li><span>' + esc(h.日付.replace(/-/g, '/')) + (h.通算番号 ? ' 第' + h.通算番号 + '回' : '') + '</span><span>' + esc(h.種別) + '</span></li>');
+  $('history').innerHTML = historyRows.slice(0, HISTORY_SHOW).join('') || '<li class="sub">まだありません</li>';
+  $('btnHistoryAll').classList.toggle('hidden', historyRows.length <= HISTORY_SHOW);
+  $('btnHistoryAll').onclick = () => { $('history').innerHTML = historyRows.join(''); $('btnHistoryAll').classList.add('hidden'); };
   if (r.isAdmin) { $('adminLink').innerHTML = '<a href="admin.html">管理画面を開く</a>'; $('adminLink').classList.remove('hidden'); }
 }
 
@@ -424,7 +442,7 @@ if (demoMode === '1' || demoMode === '2' || demoMode === '3') {
     $('btnCheckin').onclick = () => { msg('受付しました。残り 1 回。次の券をご用意ください。（デモ）', false); $('btnCheckin').classList.add('hidden'); $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです'; $('todayCount').textContent = '4'; $('todayNames').insertAdjacentHTML('beforeend', '<li>デモ太郎</li>'); $('doneLine').insertAdjacentHTML('afterend', '<button class="btn sec sm" id="btnDemoAgain">デモをやり直す（もう一度押せる状態に戻す）</button>'); $('btnDemoAgain').onclick = () => location.reload(); };
   } else if (full) {
     $('todayLabel').textContent = '今日は 第100回（昼 10:00〜12:00）';
-    $('actionCard').classList.remove('hidden'); $('btnCheckin').classList.add('hidden');
+    $('actionCard').classList.remove('hidden'); $('todayCard').classList.remove('hidden'); $('btnCheckin').classList.add('hidden');
     $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです';
     msg('受付しました。残り 0 回。次の券をご用意ください。', false);
   } else {
