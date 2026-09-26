@@ -18,7 +18,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-09-26-1' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-09-26-2' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -182,22 +182,10 @@ function unpaidAmount(memberId) {
     .reduce(function (sum, p) { return sum + (Number(p.金額) || 0); }, 0);
 }
 
-// 今の回数券の見え方：券サイズ（既定5）・残り・使った回の日付（新しい順に「使った数」だけ）
+// 今の回数券の見え方（計算は logic_stats.js の ticketCard）
 function ticketView(me, mine, sessionsById) {
-  var size = 5;
-  var remaining = Number(me.残り回数) || 0;
-  var hasTicketUse = mine.some(function (a) { return a.支払い種別 === '券'; });
   var hasPurchase = Repo.readAll('購入').some(function (p) { return p.会員ID === me.会員ID; });
-  // 券を買ったことも使ったことも無く残り0 ＝ 回数券を持っていない（①〜⑤は全部空）
-  if (remaining === 0 && !hasTicketUse && !hasPurchase) return { size: size, remaining: 0, used: [], none: true };
-  var usedCount = Math.max(0, Math.min(size, size - remaining));
-  var uses = mine.filter(function (a) { return a.支払い種別 === '券'; })
-    .sort(function (a, b) { return a.日時 < b.日時 ? 1 : -1; })
-    .slice(0, usedCount)
-    .map(function (a) { var s = sessionsById[a.開催ID] || {}; return s.日付 || String(a.日時).slice(0, 10); })
-    .reverse(); // 古い順（①から）
-  while (uses.length < usedCount) uses.unshift(''); // 移行前など日付が無い分
-  return { size: size, remaining: remaining, used: uses };
+  return ticketCard(me.残り回数, mine, hasPurchase, sessionsById);
 }
 
 // 今月と来月の開催（カレンダー描画用。誰でも見てよい情報だけ）
@@ -392,16 +380,29 @@ function adminUpsertSession(body) {
   }
 }
 
+// 会員一覧：会員画面と同じ回数券・通算・参加率も返す（シートは1回ずつだけ読む）
 function adminMembers() {
   var members = Repo.readAll('会員');
-  var total = {};
-  Repo.readAll('出席').forEach(function (a) { if (a.状態 === '有効') total[a.会員ID] = (total[a.会員ID] || 0) + 1; });
-  var unpaid = {};
-  Repo.readAll('購入').forEach(function (p) { if (p.入金 === '未収') unpaid[p.会員ID] = (unpaid[p.会員ID] || 0) + (Number(p.金額) || 0); });
+  var sessions = Repo.readAll('開催');
+  var sessById = {};
+  sessions.forEach(function (s) { sessById[s.開催ID] = s; });
+  var mineById = {};
+  Repo.readAll('出席').forEach(function (a) { if (a.状態 === '有効') (mineById[a.会員ID] = mineById[a.会員ID] || []).push(a); });
+  var unpaid = {}, bought = {};
+  Repo.readAll('購入').forEach(function (p) {
+    bought[p.会員ID] = true;
+    if (p.入金 === '未収') unpaid[p.会員ID] = (unpaid[p.会員ID] || 0) + (Number(p.金額) || 0);
+  });
+  var todayStr = formatDate(new Date());
   return {
     ok: true,
     list: members.filter(function (m) { return m.状態 !== '退会'; }).map(function (m) {
-      return { 会員ID: m.会員ID, 表示名: m.表示名, 区分: m.区分, 状態: m.状態, 残り回数: m.残り回数, 入会日: m.入会日, 通算: total[m.会員ID] || 0, 未収: unpaid[m.会員ID] || 0,
+      var mine = mineById[m.会員ID] || [];
+      var stats = memberStats(sessions, mine, m.会員ID, m.入会日, todayStr);
+      var recent = recentRate(sessions, mine, m.会員ID, m.入会日, todayStr, 2);
+      return { 会員ID: m.会員ID, 表示名: m.表示名, 区分: m.区分, 状態: m.状態, 残り回数: m.残り回数, 入会日: m.入会日, 通算: mine.length, 未収: unpaid[m.会員ID] || 0,
+        exempt: isExempt(m), ticket: ticketCard(m.残り回数, mine, !!bought[m.会員ID], sessById),
+        rate: stats.rate, recent: recent.rate, days: daysSince(m.入会日, todayStr),
         ログイン失敗: Number(m.ログイン失敗) || 0, locked: isLocked(m.ログイン失敗), hasToken: !!m.トークン, 登録: (String(m.備考).match(/登録 (\d{4}-\d{2}-\d{2})/) || [])[1] || '' };
     }),
   };

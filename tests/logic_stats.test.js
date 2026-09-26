@@ -49,3 +49,21 @@ test('celebrations：入会◯周年は記念日から14日間、節目は達成
   assert.deepEqual(celebrations('', '2026-03-10', dates), [{ type: 'milestone', count: 10, label: '通算10回達成！' }]);
   assert.deepEqual(celebrations('', '2026-04-01', dates), []);
 });
+
+const { ticketCard } = require('../gas/logic_stats.js');
+const sessById = { K1: { 日付: '2026-08-22' }, K2: { 日付: '2026-09-12' }, K3: { 日付: '2026-09-26' } };
+const useA = (id, k, t) => ({ 会員ID: 'M1', 開催ID: k, 日時: t, 支払い種別: '券', 状態: '有効' });
+
+test('回数券表示：使った数だけ古い順に日付（残り2 → ①②③）', () => {
+  const mine = [useA('A1', 'K1', '2026-08-22 10:00:00'), useA('A2', 'K2', '2026-09-12 10:00:00'), useA('A3', 'K3', '2026-09-26 10:00:00')];
+  assert.deepEqual(ticketCard(2, mine, true, sessById), { size: 5, remaining: 2, used: ['2026-08-22', '2026-09-12', '2026-09-26'] });
+});
+
+test('回数券表示：買ったことも使ったことも無く残り0なら none', () => {
+  assert.deepEqual(ticketCard(0, [], false, sessById), { size: 5, remaining: 0, used: [], none: true });
+});
+
+test('回数券表示：日付が足りない分（移行前）は空欄で埋める', () => {
+  const mine = [useA('A3', 'K3', '2026-09-26 10:00:00')];
+  assert.deepEqual(ticketCard(2, mine, true, sessById).used, ['', '', '2026-09-26']);
+});

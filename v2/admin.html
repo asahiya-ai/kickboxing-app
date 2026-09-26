@@ -113,6 +113,12 @@ details.card summary::before { color: var(--navy); }
 /* HP・グッズへのリンク（画面の一番下） */
 .club-links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 24px; }
 .club-links .btn { margin-top: 0; text-align: center; text-decoration: none; }
+
+/* 管理画面：会員カード */
+.mcard { border-top: 2px solid var(--line); padding: 14px 0; }
+.mcard-head b { font-size: 18px; }
+.mcard-ops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.mcard-ops button { flex: 1 1 45%; padding: 8px 4px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 </style>
 </head>
 <body>
@@ -166,7 +172,15 @@ details.card summary::before { color: var(--navy); }
 
     <div id="t-members" class="card hidden">
       <p class="sub">暗証番号を忘れた人は「番号リセット」→ 新しい4桁を伝えてください（その人の全端末がログアウトします）</p>
-      <table><thead><tr><th>名前</th><th>区分</th><th>状態</th><th>残り</th><th></th></tr></thead><tbody id="memberRows"></tbody></table>
+      <label class="sub">並び順</label>
+      <select id="mSort">
+        <option value="rate">参加率の高い順</option>
+        <option value="recent">直近2か月の参加率の高い順</option>
+        <option value="total">通算の多い順</option>
+        <option value="name">名前順</option>
+      </select>
+      <p class="sub" id="mCount"></p>
+      <div id="memberRows"></div>
       <button class="btn sec sm" id="btnMembersReload">更新</button>
     </div>
   </div>
@@ -225,15 +239,66 @@ async function loadSessions() {
   });
 }
 
+let membersCache = [];
 async function loadMembers() {
   const r = await KickApi.call('admin.members');
   if (!r.ok) return msg(r.message, true);
-  $('memberRows').innerHTML = r.list.map(m => '<tr><td>' + esc(m.表示名) + (m.locked ? ' 🔒' : '') + '<div class="sub" style="font-size:12px">' + esc(m.会員ID) + '・通算' + esc(m.通算) + '回' + (m.登録 ? '・登録 ' + esc(m.登録) : '') + '</div>' + (m.未収 > 0 ? '<div style="color:#c62828;font-size:12px">🔴 未収 ' + Number(m.未収).toLocaleString() + '円</div>' : '') + '</td><td>' + esc(m.区分) + '</td><td>' + esc(m.状態) + '</td><td>' + esc(m.残り回数) + '</td><td class="ops">'
+  membersCache = r.list;
+  renderMembers();
+}
+
+// 並び替え：参加率が同じ（または未計算）なら通算の多い順
+function sortMembers(list, key) {
+  const num = (v) => (v === null || v === undefined ? -1 : Number(v));
+  const byTotal = (a, b) => b.通算 - a.通算;
+  const cmp = {
+    rate: (a, b) => num(b.rate) - num(a.rate) || byTotal(a, b),
+    recent: (a, b) => num(b.recent) - num(a.recent) || byTotal(a, b),
+    total: byTotal,
+    name: (a, b) => String(a.表示名).localeCompare(String(b.表示名), 'ja'),
+  }[key] || byTotal;
+  return list.slice().sort(cmp);
+}
+
+// 会員画面と同じ回数券（①〜⑤、使った日付入り）
+function ticketHtml(m) {
+  if (m.exempt) return '<div class="stat-label">区分</div><div class="stat-num" style="font-size:24px">' + esc(m.区分) + '</div><div class="sub">券は使いません</div>';
+  const t = m.ticket || { size: 5, remaining: Number(m.残り回数) || 0, used: [] };
+  const circ = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+  let dots = '';
+  for (let i = 0; i < t.size; i++) {
+    const used = i < t.used.length;
+    const d = used && t.used[i] ? t.used[i].slice(5).replace('-', '/') : '';
+    dots += '<div class="tk' + (used ? ' used' : '') + '"><div class="tk-n">' + circ[i] + '</div><div class="tk-d">' + (used ? (d || '済') : '') + '</div></div>';
+  }
+  const over = t.remaining > t.size ? '<div class="sub" style="color:#c62828">残りが券1枚分（5回）を超えています</div>' : '';
+  return '<div class="stat-label">回数券</div><div class="stat-num">' + (t.none ? '<span class="sub">回数券はまだありません</span>' : '残り<b>' + t.remaining + '</b>回') + '</div><div class="ticket">' + dots + '</div>' + over;
+}
+
+function memberCardHtml(m) {
+  const join = m.入会日 ? m.入会日.replace(/-/g, '/') + ' 入会' + (m.days ? '（' + Number(m.days).toLocaleString() + '日目）' : '') : '入会日なし';
+  const pct = (v) => (v === null || v === undefined ? '―' : v + '%');
+  return '<div class="mcard">'
+    + '<div class="mcard-head"><b>' + esc(m.表示名) + '</b>' + (m.locked ? ' 🔒' : '')
+    + '<div class="sub" style="font-size:12px">' + esc(m.会員ID) + '・' + esc(m.区分) + '・' + esc(m.状態) + (m.登録 ? '・登録 ' + esc(m.登録) : '') + '</div>'
+    + (m.未収 > 0 ? '<div style="color:#c62828;font-size:13px;font-weight:700">🔴 未収 ' + Number(m.未収).toLocaleString() + '円</div>' : '') + '</div>'
+    + '<div class="stat-row">'
+    + '<div class="stat">' + ticketHtml(m) + '</div>'
+    + '<div class="stat"><div class="stat-label">通算参加</div><div class="stat-num">' + esc(m.通算) + '<span class="stat-unit">回</span></div><div class="sub">' + esc(join) + '</div></div>'
+    + '<div class="stat"><div class="stat-label">参加率</div><div class="stat-num">' + pct(m.rate) + '</div><span class="recent">（直近2か月 ' + pct(m.recent) + '）</span></div>'
+    + '</div>'
+    + '<div class="mcard-ops">'
     + (m.未収 > 0 ? '<button data-paid="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-amt="' + m.未収 + '">入金済みにする</button>' : '')
     + '<button data-grant="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">券を付与</button>'
     + '<button data-remain="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-now="' + esc(m.残り回数) + '">残り回数を直す</button>'
     + '<button data-reset="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">番号リセット</button>'
-    + '<button data-del="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" style="color:#c62828">誤登録を削除</button></td></tr>').join('');
+    + '<button data-del="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" style="color:#c62828">誤登録を削除</button></div></div>';
+}
+
+function renderMembers() {
+  const list = sortMembers(membersCache, $('mSort').value);
+  $('mCount').textContent = list.length + '名（退会を除く）';
+  $('memberRows').innerHTML = list.map(memberCardHtml).join('') || '<p class="sub">会員がいません</p>';
   $('memberRows').querySelectorAll('[data-paid]').forEach(b => b.onclick = async () => {
     if (!confirm(b.dataset.name + ' の未収 ' + Number(b.dataset.amt).toLocaleString() + '円 を入金済みにしますか？')) return;
     const rr = await KickApi.call('admin.markPaid', { 会員ID: b.dataset.paid });
@@ -280,6 +345,7 @@ $('btnTodayReload').onclick = loadToday;
 $('btnPendingReload').onclick = loadPending;
 $('btnSessionsReload').onclick = loadSessions;
 $('btnMembersReload').onclick = loadMembers;
+$('mSort').onchange = renderMembers;
 $('btnAddSession').onclick = async () => {
   const slot = document.querySelector('input[name=slot]:checked').value;
   const r = await KickApi.call('admin.upsertSession', { 日付: $('sDate').value.trim(), 時間帯: slot, 会場: $('sPlace').value || '武道館', 状態: '予定' });

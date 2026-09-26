@@ -58,4 +58,22 @@ function celebrations(joinDate, todayStr, attendanceDatesSorted) {
   return out;
 }
 
-if (typeof module !== 'undefined') module.exports = { memberStats, recentRate, daysSince, celebrations, MILESTONES };
+// 回数券の見え方：券サイズ（既定5）・残り・使った回の日付（新しい順に「使った数」だけ取り、古い順＝①から並べる）
+// mine：その会員の有効な出席。hasPurchase：購入記録があるか
+function ticketCard(remaining, mine, hasPurchase, sessionsById) {
+  var size = 5;
+  remaining = Number(remaining) || 0;
+  var hasTicketUse = mine.some(function (a) { return a.支払い種別 === '券'; });
+  // 券を買ったことも使ったことも無く残り0 ＝ 回数券を持っていない（①〜⑤は全部空）
+  if (remaining === 0 && !hasTicketUse && !hasPurchase) return { size: size, remaining: 0, used: [], none: true };
+  var usedCount = Math.max(0, Math.min(size, size - remaining));
+  var uses = mine.filter(function (a) { return a.支払い種別 === '券'; })
+    .sort(function (a, b) { return a.日時 < b.日時 ? 1 : -1; })
+    .slice(0, usedCount)
+    .map(function (a) { var s = sessionsById[a.開催ID] || {}; return s.日付 || String(a.日時).slice(0, 10); })
+    .reverse();
+  while (uses.length < usedCount) uses.unshift(''); // 移行前など日付が無い分
+  return { size: size, remaining: remaining, used: uses };
+}
+
+if (typeof module !== 'undefined') module.exports = { memberStats, recentRate, daysSince, celebrations, ticketCard, MILESTONES };
