@@ -119,6 +119,7 @@ details.card summary::before { color: var(--navy); }
 .mcard-head b { font-size: 18px; }
 .mcard-ops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .mcard-ops button { flex: 1 1 45%; padding: 8px 4px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.outside-line { margin: 18px 0 4px; padding: 8px 10px; background: #eceff5; color: var(--muted); font-weight: 700; border-radius: 8px; text-align: center; }
 </style>
 </head>
 <body>
@@ -174,9 +175,9 @@ details.card summary::before { color: var(--navy); }
       <p class="sub">暗証番号を忘れた人は「番号リセット」→ 新しい4桁を伝えてください（その人の全端末がログアウトします）</p>
       <label class="sub">並び順</label>
       <select id="mSort">
+        <option value="main">総合（通算の多い順→直近2か月の参加率。最近来ていない人は枠外の下へ）</option>
         <option value="rate">参加率の高い順</option>
         <option value="recent">直近2か月の参加率の高い順</option>
-        <option value="total">通算の多い順</option>
         <option value="name">名前順</option>
       </select>
       <p class="sub" id="mCount"></p>
@@ -247,14 +248,18 @@ async function loadMembers() {
   renderMembers();
 }
 
+// 総合の並びで「枠外」にする基準：直近2か月の参加率がこれ未満（未計算も枠外）
+const OUTSIDE_RECENT_BELOW = 20;
+function isOutside(m) { return m.recent === null || m.recent === undefined || Number(m.recent) < OUTSIDE_RECENT_BELOW; }
+
 // 並び替え：参加率が同じ（または未計算）なら通算の多い順
 function sortMembers(list, key) {
   const num = (v) => (v === null || v === undefined ? -1 : Number(v));
   const byTotal = (a, b) => b.通算 - a.通算;
   const cmp = {
+    main: (a, b) => isOutside(a) - isOutside(b) || byTotal(a, b) || num(b.recent) - num(a.recent),
     rate: (a, b) => num(b.rate) - num(a.rate) || byTotal(a, b),
     recent: (a, b) => num(b.recent) - num(a.recent) || byTotal(a, b),
-    total: byTotal,
     name: (a, b) => String(a.表示名).localeCompare(String(b.表示名), 'ja'),
   }[key] || byTotal;
   return list.slice().sort(cmp);
@@ -297,8 +302,18 @@ function memberCardHtml(m) {
 
 function renderMembers() {
   const list = sortMembers(membersCache, $('mSort').value);
-  $('mCount').textContent = list.length + '名（退会を除く）';
-  $('memberRows').innerHTML = list.map(memberCardHtml).join('') || '<p class="sub">会員がいません</p>';
+  const key = $('mSort').value;
+  const outCount = key === 'main' ? list.filter(isOutside).length : 0;
+  $('mCount').textContent = list.length + '名（退会を除く）' + (key === 'main' ? '・枠外 ' + outCount + '名' : '');
+  let firstOut = true;
+  $('memberRows').innerHTML = list.map(m => {
+    let sep = '';
+    if (key === 'main' && isOutside(m) && firstOut) {
+      firstOut = false;
+      sep = '<div class="outside-line">ここから枠外：直近2か月の参加率 ' + OUTSIDE_RECENT_BELOW + '%未満（' + outCount + '名）</div>';
+    }
+    return sep + memberCardHtml(m);
+  }).join('') || '<p class="sub">会員がいません</p>';
   $('memberRows').querySelectorAll('[data-paid]').forEach(b => b.onclick = async () => {
     if (!confirm(b.dataset.name + ' の未収 ' + Number(b.dataset.amt).toLocaleString() + '円 を入金済みにしますか？')) return;
     const rr = await KickApi.call('admin.markPaid', { 会員ID: b.dataset.paid });

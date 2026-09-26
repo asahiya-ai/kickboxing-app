@@ -110,3 +110,4 @@ details.card summary::before { color: var(--navy); }
 .mcard-head b { font-size: 18px; }
 .mcard-ops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .mcard-ops button { flex: 1 1 45%; padding: 8px 4px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.outside-line { margin: 18px 0 4px; padding: 8px 10px; background: #eceff5; color: var(--muted); font-weight: 700; border-radius: 8px; text-align: center; }
