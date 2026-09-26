@@ -115,7 +115,16 @@ details.card summary::before { color: var(--navy); }
 .club-links .btn { margin-top: 0; text-align: center; text-decoration: none; }
 
 /* 管理画面：会員カード */
-.mcard { border-top: 2px solid var(--line); padding: 14px 0; }
+.mcard { border-top: 1px solid var(--line); }
+.mrow { display: grid; grid-template-columns: 12px 1fr auto auto auto; gap: 10px; align-items: center; padding: 12px 2px; cursor: pointer; list-style: none; font-size: 15px; }
+.mrow::-webkit-details-marker { display: none; }
+.mrow::before { content: "▸"; color: var(--navy); margin-right: -4px; }
+.mcard[open] > .mrow::before { content: "▾"; }
+.mrow-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow-num { color: var(--muted); font-size: 13px; text-align: right; white-space: nowrap; }
+.mrow-num b { color: var(--ink); font-size: 16px; margin-left: 2px; }
+.mcard[open] { background: #f7f9fe; border-radius: 10px; }
+.mcard-body { padding: 0 8px 14px; }
 .mcard-head b { font-size: 18px; }
 .mcard-ops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .mcard-ops button { flex: 1 1 45%; padding: 8px 4px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
@@ -175,7 +184,7 @@ details.card summary::before { color: var(--navy); }
       <p class="sub">暗証番号を忘れた人は「番号リセット」→ 新しい4桁を伝えてください（その人の全端末がログアウトします）</p>
       <label class="sub">並び順</label>
       <select id="mSort">
-        <option value="main">総合（通算の多い順→直近2か月の参加率。最近来ていない人は枠外の下へ）</option>
+        <option value="main">総合（通算→直近2か月・枠外は下）</option>
         <option value="rate">参加率の高い順</option>
         <option value="recent">直近2か月の参加率の高い順</option>
         <option value="name">名前順</option>
@@ -283,7 +292,12 @@ function ticketHtml(m) {
 function memberCardHtml(m) {
   const join = m.入会日 ? m.入会日.replace(/-/g, '/') + ' 入会' + (m.days ? '（' + Number(m.days).toLocaleString() + '日目）' : '') : '入会日なし';
   const pct = (v) => (v === null || v === undefined ? '―' : v + '%');
-  return '<div class="mcard">'
+  const remain = m.exempt ? esc(m.区分) : '残り' + esc(m.ticket && !m.ticket.none ? m.ticket.remaining : (Number(m.残り回数) || 0));
+  // 閉じているときは1行（名前・通算・直近・残り）。押すと中身が開く
+  return '<details class="mcard">'
+    + '<summary class="mrow"><span class="mrow-name">' + esc(m.表示名) + (m.未収 > 0 ? ' 🔴' : '') + (m.locked ? ' 🔒' : '') + '</span>'
+    + '<span class="mrow-num">通算<b>' + esc(m.通算) + '</b></span><span class="mrow-num">直近<b>' + pct(m.recent) + '</b></span><span class="mrow-num">' + remain + '</span></summary>'
+    + '<div class="mcard-body">'
     + '<div class="mcard-head"><b>' + esc(m.表示名) + '</b>' + (m.locked ? ' 🔒' : '')
     + '<div class="sub" style="font-size:12px">' + esc(m.会員ID) + '・' + esc(m.区分) + '・' + esc(m.状態) + (m.登録 ? '・登録 ' + esc(m.登録) : '') + '</div>'
     + (m.未収 > 0 ? '<div style="color:#c62828;font-size:13px;font-weight:700">🔴 未収 ' + Number(m.未収).toLocaleString() + '円</div>' : '') + '</div>'
@@ -297,7 +311,7 @@ function memberCardHtml(m) {
     + '<button data-grant="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">券を付与</button>'
     + '<button data-remain="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-now="' + esc(m.残り回数) + '">残り回数を直す</button>'
     + '<button data-reset="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">番号リセット</button>'
-    + '<button data-del="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" style="color:#c62828">誤登録を削除</button></div></div>';
+    + '<button data-del="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" style="color:#c62828">誤登録を削除</button></div></div></details>';
 }
 
 function renderMembers() {
