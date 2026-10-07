@@ -23,7 +23,7 @@ h2 { font-size: 16px; margin: 0 0 8px; }
 .btn.sm { padding: 10px; font-size: 15px; }
 .list { padding: 0; margin: 8px 0 0; list-style: none; }
 .list li { padding: 8px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
-.msg { padding: 12px; border-radius: 8px; background: #fff3e0; margin-bottom: 12px; }
+.msg { padding: 12px; border-radius: 8px; background: #fff3e0; margin-bottom: 12px; white-space: pre-line; }
 .msg.err { background: #ffebee; }
 input[type=text], input[type=password], input[type=tel], input[type=date], select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
 .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
@@ -132,6 +132,17 @@ details.card summary::before { color: var(--navy); }
 .mcard-head b { font-size: 18px; }
 .mcard-ops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .mcard-ops button { flex: 1 1 45%; padding: 8px 4px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.att-box { margin-top: 12px; padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+.att-title { font-weight: 800; color: var(--navy); margin-bottom: 6px; }
+.att-box select, .kubun-box select { width: 100%; padding: 8px; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.att-now { margin: 6px 0 2px; font-size: 14px; }
+.att-now b { font-size: 16px; }
+.att-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.att-btns button { flex: 1 1 45%; padding: 10px 4px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.att-btns button.free { border-color: var(--navy); color: var(--navy); font-weight: 700; }
+.att-btns button.cancel { flex-basis: 100%; color: #c62828; }
+.kubun-box { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; margin-top: 10px; }
+.kubun-box button { padding: 8px 10px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .outside-line { margin: 18px 0 4px; padding: 8px 10px; background: #eceff5; color: var(--muted); font-weight: 700; border-radius: 8px; text-align: center; }
 </style>
 </head>
@@ -200,8 +211,8 @@ details.card summary::before { color: var(--navy); }
   </div>
 </div>
 
-<script src="config.js?v=20260919j"></script>
-<script src="api.js?v=20260919j"></script>
+<script src="config.js?v=20261007a"></script>
+<script src="api.js?v=20261007a"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
@@ -254,11 +265,58 @@ async function loadSessions() {
 }
 
 let membersCache = [];
+let membersMeta = { sessions: [], prices: {}, kubunList: [] }; // 出席を記録する回・料金・区分の一覧
 async function loadMembers() {
   const r = await KickApi.call('admin.members');
   if (!r.ok) return msg(r.message, true);
   membersCache = r.list;
+  membersMeta = { sessions: r.sessions || [], prices: r.prices || {}, kubunList: r.kubunList || [] };
   renderMembers();
+}
+
+// 出席の種別の見せ方
+const ATT_LABEL = { 入会: '初回無料（入会）', 券: '券', 都度: '都度', 体験: '体験', 事務長: '事務長（無料）', 免除: '免除', 移行: '移行（旧アプリ）' };
+const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+function sessionLabel(s) {
+  const d = new Date(s.日付 + 'T00:00:00');
+  return '第' + s.通算番号 + '回 ' + (d.getMonth() + 1) + '/' + d.getDate() + '(' + WEEK[d.getDay()] + ') ' + s.時間帯 + (s.today ? '・今日' : '');
+}
+function attNowHtml(m, sid) {
+  const t = (m.att || {})[sid];
+  const s = membersMeta.sessions.find(x => x.開催ID === sid) || {};
+  const jimu = m.jimu && s.jimu && !t ? '<div class="sub">この回の事務長の無料：' + esc(s.jimu) + '</div>' : '';
+  return 'この回：' + (t ? '<b>出席（' + esc(ATT_LABEL[t] || t) + '）</b>' : '<b style="color:#c62828">未出席</b>') + jimu;
+}
+
+// 会員カードの「出席を記録・直す」：回を選んで種別のボタンを押す
+function attBoxHtml(m) {
+  const ss = membersMeta.sessions;
+  if (!ss.length) return '';
+  const id = esc(m.会員ID);
+  const p = membersMeta.prices || {};
+  const yen = (v) => (v === null || v === undefined ? '' : ' ' + Number(v).toLocaleString() + '円');
+  const btn = (type, label, cls) => '<button data-att="' + type + '" data-id="' + id + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + label + '</button>';
+  return '<div class="att-box"><div class="att-title">出席を記録・直す</div>'
+    + '<select data-att-sess="' + id + '">' + ss.map(s => '<option value="' + esc(s.開催ID) + '">' + esc(sessionLabel(s)) + ((m.att || {})[s.開催ID] ? '　✔出席' : '') + '</option>').join('') + '</select>'
+    + '<div class="att-now" data-att-now="' + id + '">' + attNowHtml(m, ss[0].開催ID) + '</div>'
+    + '<div class="att-btns">'
+    + btn('入会', '初回無料（入会）', 'free')
+    + btn('券', '券を1回使う')
+    + btn('都度', '都度' + yen(p.drop_in))
+    + btn('体験', '体験' + yen(p.trial))
+    + (m.jimu ? btn('事務長', '事務長（無料）', 'free') : '')
+    + (m.exempt ? btn('免除', '免除', 'free') : '')
+    + btn('取消', 'この回の出席を取消', 'cancel')
+    + '</div><div class="sub" style="font-size:12px;margin-top:4px">お金（券の購入・入金）は変わりません。券を買った人は［券を付与］も押してください</div></div>';
+}
+
+function kubunBoxHtml(m) {
+  const list = membersMeta.kubunList;
+  if (!list.length) return '';
+  return '<div class="kubun-box"><select data-kubun-sel="' + esc(m.会員ID) + '">'
+    + list.map(k => '<option' + (k === m.区分 ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select>'
+    + '<button data-kubun="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-now="' + esc(m.区分) + '">区分を変更</button></div>'
+    + '<div class="sub" style="font-size:12px">事務長・副事務長：その回で先に出席した1人だけ無料。部長・副部長・免除：いつも無料</div>';
 }
 
 // 総合の並びで「枠外」にする基準：直近2か月の参加率がこれ未満（未計算も枠外）
@@ -310,12 +368,14 @@ function memberCardHtml(m) {
     + '<div class="stat"><div class="stat-label">通算参加</div><div class="stat-num">' + esc(m.通算) + '<span class="stat-unit">回</span></div><div class="sub">' + esc(join) + '</div></div>'
     + '<div class="stat"><div class="stat-label">参加率</div><div class="stat-num">' + pct(m.rate) + '</div><span class="recent">（直近2か月 ' + pct(m.recent) + '）</span></div>'
     + '</div>'
+    + attBoxHtml(m)
     + '<div class="mcard-ops">'
     + (m.未収 > 0 ? '<button data-paid="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-amt="' + m.未収 + '">入金済みにする</button>' : '')
     + '<button data-grant="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">券を付与</button>'
     + '<button data-remain="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-now="' + esc(m.残り回数) + '">残り回数を直す</button>'
     + '<button data-reset="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '">番号リセット</button>'
-    + '<button data-del="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" style="color:#c62828">誤登録を削除</button></div></div></details>';
+    + '<button data-del="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" style="color:#c62828">誤登録を削除</button></div>'
+    + kubunBoxHtml(m) + '</div></details>';
 }
 
 function renderMembers() {
@@ -366,12 +426,52 @@ function renderMembers() {
       msg(rr.message, !rr.ok); loadMembers();
     } finally { b.disabled = false; }
   });
+  $('memberRows').querySelectorAll('[data-att-sess]').forEach(sel => sel.onchange = () => {
+    const m = membersCache.find(x => x.会員ID === sel.dataset.attSess);
+    $('memberRows').querySelector('[data-att-now="' + sel.dataset.attSess + '"]').innerHTML = attNowHtml(m, sel.value);
+  });
+  $('memberRows').querySelectorAll('[data-att]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.id, type = b.dataset.att;
+    const m = membersCache.find(x => x.会員ID === id);
+    const sid = $('memberRows').querySelector('[data-att-sess="' + id + '"]').value;
+    const s = membersMeta.sessions.find(x => x.開催ID === sid);
+    const now = (m.att || {})[sid];
+    const what = type === '取消' ? '出席（' + (ATT_LABEL[now] || now || '') + '）を取り消します'
+      : now ? '「' + (ATT_LABEL[now] || now) + '」を「' + ATT_LABEL[type] + '」に直します' : '「' + ATT_LABEL[type] + '」で出席を記録します';
+    if (!confirm(m.表示名 + '：' + sessionLabel(s) + '\n' + what + '。よろしいですか？')) return;
+    b.disabled = true;
+    try {
+      const rr = await KickApi.call('admin.attendance', { 会員ID: id, 開催ID: sid, type });
+      msg(rr.message, !rr.ok);
+      if (!rr.ok) return alert(rr.message);
+      await reloadMembersKeepOpen(id, sid);
+    } finally { b.disabled = false; }
+  });
+  $('memberRows').querySelectorAll('[data-kubun]').forEach(b => b.onclick = async () => {
+    const k = $('memberRows').querySelector('[data-kubun-sel="' + b.dataset.kubun + '"]').value;
+    if (k === b.dataset.now) return msg('区分は「' + k + '」のままです', true);
+    if (!confirm(b.dataset.name + ' の区分を「' + b.dataset.now + '」→「' + k + '」に変えますか？')) return;
+    const rr = await KickApi.call('admin.updateMember', { 会員ID: b.dataset.kubun, 区分: k });
+    msg(rr.message, !rr.ok);
+    if (rr.ok) await reloadMembersKeepOpen(b.dataset.kubun);
+  });
   $('memberRows').querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
     const pin = prompt(b.dataset.name + ' の新しい暗証番号（4桁）を入力');
     if (pin === null) return;
     const rr = await KickApi.call('admin.resetPin', { 会員ID: b.dataset.reset, pin });
     msg(rr.message, !rr.ok); loadMembers();
   });
+}
+
+// 操作のあと一覧を読み直しても、さっきの人のカードを開いたまま・同じ回を選んだままにする
+async function reloadMembersKeepOpen(id, sid) {
+  await loadMembers();
+  const sel = $('memberRows').querySelector('[data-att-sess="' + id + '"]');
+  if (!sel) return;
+  const card = sel.closest('details');
+  card.open = true;
+  if (sid) { sel.value = sid; sel.onchange(); }
+  card.scrollIntoView({ block: 'nearest' });
 }
 
 $('btnTodayReload').onclick = loadToday;

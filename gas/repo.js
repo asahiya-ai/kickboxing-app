@@ -157,6 +157,17 @@ function setupValidations() {
     SpreadsheetApp.newDataValidation().requireCheckbox().build());
 }
 
+// 区分のプルダウンに新しい区分（事務長など）が無ければ付け直す。管理画面で区分を変えるたびに呼ぶ（入っていれば何もしない）
+function ensureKubunValidation() {
+  var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  var sh = SpreadsheetApp.openById(id).getSheetByName('会員');
+  var rule = sh.getRange(2, HEADERS['会員'].indexOf('区分') + 1).getDataValidation();
+  var values = rule ? rule.getCriteriaValues() : [];
+  var have = Array.isArray(values[0]) ? values[0] : [];
+  var missing = KUBUN_LIST.some(function (k) { return have.indexOf(k) < 0; });
+  if (missing) setupValidations();
+}
+
 // GAS エディタから1回だけ実行：タブと見出し、料金・設定の初期値を作る
 function setupSheets() {
   var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');

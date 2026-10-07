@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { decideCheckin, isExempt } = require('../gas/logic_checkin.js');
+const { decideCheckin, isExempt, isJimu } = require('../gas/logic_checkin.js');
 
 const prices = {
   trial: { 金額: 500, 付与回数: 0 },
@@ -125,4 +125,31 @@ test('部長・副部長は免除と同じ（金額0・消化なし）', () => {
   }
   assert.equal(isExempt({ 区分: '一般' }), false);
   assert.equal(isExempt({ 区分: ' 部長 ' }), true);
+});
+
+test('事務長・副事務長は、その回で最初の1人だけ無料（券を使わない）', () => {
+  for (const k of ['事務長', '副事務長']) {
+    const r = decideCheckin({ member: member({ 区分: k, 残り回数: 3 }), session, alreadyAttended: false, prices, choice: null, jimuTaken: false });
+    assert.equal(r.ok, true, k);
+    assert.deepEqual(r.attendance, { 支払い種別: '事務長', 金額: 0, 消化: false });
+    assert.equal(r.remainingAfter, 3);
+  }
+});
+
+test('事務長の無料がもう使われた回は、2人目は通常どおり券を使う', () => {
+  const r = decideCheckin({ member: member({ 区分: '副事務長', 残り回数: 3 }), session, alreadyAttended: false, prices, choice: null, jimuTaken: true });
+  assert.deepEqual(r.attendance, { 支払い種別: '券', 金額: 0, 消化: true });
+  assert.equal(r.remainingAfter, 2);
+});
+
+test('事務長の2人目で券が無ければ、都度か券購入を選ばせる', () => {
+  const r = decideCheckin({ member: member({ 区分: '事務長', 残り回数: 0 }), session, alreadyAttended: false, prices, choice: null, jimuTaken: true });
+  assert.equal(r.needChoice, true);
+  assert.deepEqual(r.options.map(o => o.key), ['drop_in', 'buy_ticket']);
+});
+
+test('事務長は免除ではない（券は買える・残りも表示する）', () => {
+  assert.equal(isExempt({ 区分: '事務長' }), false);
+  assert.equal(isJimu({ 区分: ' 副事務長 ' }), true);
+  assert.equal(isJimu({ 区分: '部長' }), false);
 });

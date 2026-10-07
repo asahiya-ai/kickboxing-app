@@ -18,7 +18,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-09-26-2' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-10-07-1' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -220,8 +220,9 @@ function actionCheckin(me, body) {
     var ctx = todayContext();
     var already = ctx.session ? ctx.todays.some(function (a) { return a.会員ID === fresh.会員ID; }) : false;
     var hasPurchase = Repo.readAll('購入').some(function (p) { return p.会員ID === fresh.会員ID; });
+    var jimuTaken = ctx.todays.some(function (a) { return a.支払い種別 === '事務長'; });
     var decision = decideCheckin({
-      member: fresh, session: ctx.session, alreadyAttended: already, prices: Repo.prices(), choice: body.choice || null, hasPurchase: hasPurchase,
+      member: fresh, session: ctx.session, alreadyAttended: already, prices: Repo.prices(), choice: body.choice || null, hasPurchase: hasPurchase, jimuTaken: jimuTaken,
     });
     if (!decision.ok) return decision;
 
@@ -271,6 +272,7 @@ function handleAdmin(action, body, admin) {
     case 'admin.purchase': return adminPurchase(body, admin);
     case 'admin.setRemaining': return adminSetRemaining(body, admin);
     case 'admin.deleteMember': return adminDeleteMember(body, admin);
+    case 'admin.attendance': return adminAttendance(body, admin);
     default: return { ok: false, message: '不明な操作です' };
   }
 }
@@ -394,14 +396,28 @@ function adminMembers() {
     if (p.入金 === '未収') unpaid[p.会員ID] = (unpaid[p.会員ID] || 0) + (Number(p.金額) || 0);
   });
   var todayStr = formatDate(new Date());
+  // 出席を記録・直すときに選べる回（今日までの新しい順）と、その回で事務長の無料を使っている人
+  var recent = recentSessionsForAdmin(sessions, todayStr, 6);
+  var recentIds = {};
+  recent.forEach(function (s) { recentIds[s.開催ID] = true; });
+  var jimuBySession = {};
+  Object.keys(mineById).forEach(function (id) {
+    mineById[id].forEach(function (a) { if (recentIds[a.開催ID] && a.支払い種別 === '事務長') jimuBySession[a.開催ID] = a.表示名; });
+  });
+  var p = Repo.prices();
   return {
     ok: true,
+    kubunList: KUBUN_LIST,
+    prices: { drop_in: p.drop_in ? p.drop_in.金額 : null, trial: p.trial ? p.trial.金額 : null },
+    sessions: recent.map(function (s) { return { 開催ID: s.開催ID, 通算番号: s.通算番号, 日付: s.日付, 時間帯: s.時間帯, today: s.日付 === todayStr, jimu: jimuBySession[s.開催ID] || '' }; }),
     list: members.filter(function (m) { return m.状態 !== '退会'; }).map(function (m) {
       var mine = mineById[m.会員ID] || [];
+      var att = {};
+      mine.forEach(function (a) { if (recentIds[a.開催ID]) att[a.開催ID] = a.支払い種別; });
       var stats = memberStats(sessions, mine, m.会員ID, m.入会日, todayStr);
       var recent = recentRate(sessions, mine, m.会員ID, m.入会日, todayStr, 2);
       return { 会員ID: m.会員ID, 表示名: m.表示名, 区分: m.区分, 状態: m.状態, 残り回数: m.残り回数, 入会日: m.入会日, 通算: mine.length, 未収: unpaid[m.会員ID] || 0,
-        exempt: isExempt(m), ticket: ticketCard(m.残り回数, mine, !!bought[m.会員ID], sessById),
+        exempt: isExempt(m), jimu: isJimu(m), att: att, ticket: ticketCard(m.残り回数, mine, !!bought[m.会員ID], sessById),
         rate: stats.rate, recent: recent.rate, days: daysSince(m.入会日, todayStr),
         ログイン失敗: Number(m.ログイン失敗) || 0, locked: isLocked(m.ログイン失敗), hasToken: !!m.トークン, 登録: (String(m.備考).match(/登録 (\d{4}-\d{2}-\d{2})/) || [])[1] || '' };
     }),
@@ -620,7 +636,7 @@ function adminUpdateMember(body, admin) {
   if (!m) return { ok: false, message: '会員が見つかりません' };
   var patch = {};
   if (body.状態 && ['有効', '休会', '退会'].indexOf(body.状態) >= 0) patch.状態 = body.状態;
-  if (body.区分 && KUBUN_LIST.indexOf(body.区分) >= 0) patch.区分 = body.区分;
+  if (body.区分 && KUBUN_LIST.indexOf(body.区分) >= 0) { patch.区分 = body.区分; ensureKubunValidation(); }
   if (body.表示名) { var v = validateName(body.表示名); if (!v.ok) return v; patch.表示名 = v.name; }
   if (!Object.keys(patch).length) return { ok: false, message: '変更する項目がありません' };
   if (patch.状態 === '退会') { patch.トークン = ''; }
@@ -643,6 +659,52 @@ function adminSetRemaining(body, admin) {
     Repo.update('会員', m._row, { 残り回数: v.value,
       備考: (m.備考 || '') + ' / ' + formatDate(new Date()) + ' 残り' + before + '→' + v.value + ' by ' + admin.会員ID });
     return { ok: true, message: m.表示名 + ' の残り回数を ' + before + ' → ' + v.value + ' 回に直しました' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 管理者が出席を記録・直す・取り消す（会員カードから）。body: { 会員ID, 開催ID, type }。type は 入会／券／都度／体験／事務長／免除／取消
+// 券の増減は「前の記録で使った券を戻す → 新しい種別で使う」で計算する。お金（購入タブ）には触らない
+function adminAttendance(body, admin) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var m = Repo.readAll('会員').filter(function (x) { return x.会員ID === body.会員ID; })[0];
+    var sessions = Repo.readAll('開催');
+    var s = sessions.filter(function (x) { return x.開催ID === body.開催ID; })[0];
+    var attendances = Repo.readAll('出席');
+    var inSession = s ? attendances.filter(function (a) { return a.開催ID === s.開催ID && a.状態 === '有効'; }) : [];
+    var existing = m ? inSession.filter(function (a) { return a.会員ID === m.会員ID; })[0] || null : null;
+    var jimuHolder = inSession.filter(function (a) { return a.支払い種別 === '事務長' && m && a.会員ID !== m.会員ID; })[0] || null;
+    var plan = planAdminAttendance({ member: m, session: s, existing: existing, type: body.type, prices: Repo.prices(), jimuHolder: jimuHolder });
+    if (!plan.ok) return plan;
+
+    var nowStr = formatDateTime(new Date());
+    var label = '第' + (s.通算番号 || '?') + '回(' + s.日付 + ')';
+    var count = inSession.length;
+    if (plan.mode === 'add') {
+      Repo.append('出席', {
+        出席ID: Repo.nextId('出席'), 日時: nowStr, 開催ID: s.開催ID, 会員ID: m.会員ID, 表示名: m.表示名,
+        支払い種別: plan.attendance.支払い種別, 金額: plan.attendance.金額, 消化: plan.attendance.消化,
+        記録方法: '代打ち ' + admin.会員ID, 状態: '有効', '取消日時・取消者': '',
+      });
+      count++;
+    } else if (plan.mode === 'change') {
+      Repo.update('出席', existing._row, { 支払い種別: plan.attendance.支払い種別, 金額: plan.attendance.金額, 消化: plan.attendance.消化,
+        記録方法: String(existing.記録方法 || '') + '→修正 ' + admin.会員ID });
+    } else {
+      Repo.update('出席', existing._row, { 状態: '取消', '取消日時・取消者': nowStr + ' ' + admin.会員ID });
+      count--;
+    }
+    var what = plan.mode === 'cancel' ? '出席を取消（' + existing.支払い種別 + '）'
+      : plan.mode === 'change' ? existing.支払い種別 + '→' + plan.attendance.支払い種別 : plan.attendance.支払い種別 + 'で記録';
+    var patch = { 残り回数: plan.remainingAfter, 備考: (m.備考 || '') + ' / ' + formatDate(new Date()) + ' ' + label + ' ' + what + ' by ' + admin.会員ID };
+    if (plan.joinDate) patch.入会日 = plan.joinDate;
+    Repo.update('会員', m._row, patch);
+    Repo.update('開催', s._row, { 出席人数: count });
+    var remain = isExempt(m) ? '' : '（残り ' + plan.remainingAfter + ' 回）';
+    return { ok: true, message: m.表示名 + '：' + label + ' ' + what + remain };
   } finally {
     lock.releaseLock();
   }

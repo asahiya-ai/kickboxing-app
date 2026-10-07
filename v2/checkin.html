@@ -23,7 +23,7 @@ h2 { font-size: 16px; margin: 0 0 8px; }
 .btn.sm { padding: 10px; font-size: 15px; }
 .list { padding: 0; margin: 8px 0 0; list-style: none; }
 .list li { padding: 8px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
-.msg { padding: 12px; border-radius: 8px; background: #fff3e0; margin-bottom: 12px; }
+.msg { padding: 12px; border-radius: 8px; background: #fff3e0; margin-bottom: 12px; white-space: pre-line; }
 .msg.err { background: #ffebee; }
 input[type=text], input[type=password], input[type=tel], input[type=date], select { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
 .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
@@ -132,6 +132,17 @@ details.card summary::before { color: var(--navy); }
 .mcard-head b { font-size: 18px; }
 .mcard-ops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .mcard-ops button { flex: 1 1 45%; padding: 8px 4px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.att-box { margin-top: 12px; padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+.att-title { font-weight: 800; color: var(--navy); margin-bottom: 6px; }
+.att-box select, .kubun-box select { width: 100%; padding: 8px; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.att-now { margin: 6px 0 2px; font-size: 14px; }
+.att-now b { font-size: 16px; }
+.att-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.att-btns button { flex: 1 1 45%; padding: 10px 4px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.att-btns button.free { border-color: var(--navy); color: var(--navy); font-weight: 700; }
+.att-btns button.cancel { flex-basis: 100%; color: #c62828; }
+.kubun-box { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; margin-top: 10px; }
+.kubun-box button { padding: 8px 10px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .outside-line { margin: 18px 0 4px; padding: 8px 10px; background: #eceff5; color: var(--muted); font-weight: 700; border-radius: 8px; text-align: center; }
 </style>
 </head>
@@ -250,6 +261,7 @@ details.card summary::before { color: var(--navy); }
 <script>
 const $ = (id) => document.getElementById(id);
 let todayInfo = null; // 今日の練習（出席の確認文に使う）
+let attendedToday = false; // 今日もう出席を押したか（券を買ったあとの案内に使う）
 
 function show(id) { ['loading', 'v-login', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
@@ -366,6 +378,7 @@ function render(r) {
     $('actionCard').classList.remove('hidden');
     $('todayCard').classList.remove('hidden');
     todayInfo = r.today;
+    attendedToday = !!r.attendedToday;
     $('confirmBox').classList.add('hidden');
     $('btnCheckin').classList.toggle('hidden', r.attendedToday);
     $('doneLine').classList.toggle('hidden', !r.attendedToday);
@@ -393,8 +406,12 @@ async function buyTicket() {
   b.disabled = true; b.textContent = '記録中…';
   const r = await KickApi.call('buyTicket');
   if (!r.ok) { msg(r.message, true); await load(); return; }
-  msg('5回券を追加しました（残り ' + r.remaining + ' 回）。代金 ' + r.amount.toLocaleString() + ' 円は管理者にお支払いください', false);
   await load();
+  // 券を買っただけでは出席にならない（2026-10-07 初参加の人が券だけ買って帰った）。練習日でまだなら出席を促す
+  const notYet = todayInfo && !attendedToday;
+  msg('5回券を追加しました（残り ' + r.remaining + ' 回）。代金 ' + r.amount.toLocaleString() + ' 円は管理者にお支払いください'
+    + (notYet ? '。\n※まだ出席は記録されていません。続けて上の［出席する］を押してください' : ''), false);
+  if (notYet) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function checkin(choice) {
@@ -415,6 +432,8 @@ async function checkin(choice) {
   $('choices').classList.add('hidden');
   if (!r.ok) { msg(r.message, true); await load(); return; }
   const parts = ['受付しました'];
+  if (r.type === '入会') parts.push('初回は無料です');
+  if (r.type === '事務長') parts.push('今日は事務長として無料です');
   if (r.type === '券') parts.push('残り ' + r.remaining + ' 回');
   if (r.remaining === 1) parts.push('次の券をご用意ください');
   if (r.amount > 0) parts.push('本日 ' + r.amount.toLocaleString() + ' 円をお支払いください');

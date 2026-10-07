@@ -5,11 +5,17 @@
 //   { ok:true, attendance:{支払い種別,金額,消化}, remainingAfter, purchase|null, setJoinDate }
 
 // 区分の一覧。部長・副部長は「免除」と同じ扱い（お金も券も動かさず回数だけ数える）
-var KUBUN_LIST = ['一般', '運営会員', '部長', '副部長', '免除'];
+// 事務長・副事務長は、その回で先に出席した1人だけ無料（2人そろった回の2人目は通常どおり）
+var KUBUN_LIST = ['一般', '運営会員', '事務長', '副事務長', '部長', '副部長', '免除'];
 var KUBUN_EXEMPT = ['免除', '部長', '副部長'];
+var KUBUN_JIMU = ['事務長', '副事務長'];
 
 function isExempt(member) {
   return KUBUN_EXEMPT.indexOf(String(member.区分 || '').trim()) >= 0;
+}
+
+function isJimu(member) {
+  return KUBUN_JIMU.indexOf(String(member.区分 || '').trim()) >= 0;
 }
 
 function ticketPrice(member, prices) {
@@ -44,6 +50,11 @@ function decideCheckin(input) {
 
   if (isExempt(m)) {
     return Object.assign(base, { ok: true, attendance: { 支払い種別: '免除', 金額: 0, 消化: false }, remainingAfter: remaining });
+  }
+
+  // jimuTaken：この回の「事務長」の無料がもう使われているか（事務長・副事務長あわせて1回に1人）
+  if (isJimu(m) && !input.jimuTaken) {
+    return Object.assign(base, { ok: true, attendance: { 支払い種別: '事務長', 金額: 0, 消化: false }, remainingAfter: remaining });
   }
 
   // 初回で、先にこのアプリで券を買っている（本人の［5回券を買う］や管理者の付与）＝入会日。初回は無料なので消化しない。
@@ -99,4 +110,4 @@ function decideCheckin(input) {
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { decideCheckin, isExempt, KUBUN_LIST, KUBUN_EXEMPT };
+if (typeof module !== 'undefined') module.exports = { decideCheckin, isExempt, isJimu, KUBUN_LIST, KUBUN_EXEMPT, KUBUN_JIMU };

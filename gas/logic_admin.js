@@ -47,4 +47,66 @@ function todayUnpaidTotal(todays, purchases) {
     .reduce(function (sum, p) { return sum + (Number(p.金額) || 0); }, 0);
 }
 
-if (typeof module !== 'undefined') module.exports = { validateRemaining, planMemberDeletion, recountSessions, todayUnpaidTotal, DELETE_MAX_ATTENDANCE };
+// ---------- 管理者が出席を記録・直す（代打ち・種別の直し・取消） ----------
+// GAS では logic_checkin.js の isExempt / isJimu がグローバルにある。Node のテストでは require で取る
+function _kubun() {
+  return typeof isJimu === 'function' ? { isExempt: isExempt, isJimu: isJimu } : require('./logic_checkin.js');
+}
+
+// 管理者が選べる種別（表示名は画面側）。'取消' は出席を取り消す
+var ADMIN_ATT_TYPES = ['入会', '券', '都度', '体験', '事務長', '免除'];
+
+function _consumed(a) {
+  return a.消化 === true || String(a.消化).toUpperCase() === 'TRUE';
+}
+
+// input: { member, session, existing（その回の有効な出席 or null）, type, prices, jimuHolder（その回で事務長の無料を使っている別の人の出席 or null） }
+// 戻り値: { ok:false, message } ／ { ok:true, mode:'add'|'change'|'cancel', attendance, remainingAfter, joinDate }
+function planAdminAttendance(input) {
+  var k = _kubun();
+  var m = input.member, s = input.session, ex = input.existing || null, type = String(input.type || '');
+  if (!m) return { ok: false, message: '会員が見つかりません' };
+  if (!s) return { ok: false, message: '練習の回を選んでください' };
+  if (s.状態 === '中止') return { ok: false, message: '中止の回には記録できません' };
+  var remaining = Number(m.残り回数) || 0;
+  var back = ex && _consumed(ex) ? 1 : 0; // 前の記録で使っていた券は戻す
+
+  if (type === '取消') {
+    if (!ex) return { ok: false, message: 'この回の出席はありません' };
+    return { ok: true, mode: 'cancel', attendance: null, remainingAfter: remaining + back, joinDate: null };
+  }
+  if (ADMIN_ATT_TYPES.indexOf(type) < 0) return { ok: false, message: '種別を選んでください' };
+  if (type === '事務長' && !k.isJimu(m)) return { ok: false, message: '「事務長」は区分が事務長・副事務長の人だけ選べます' };
+  if (type === '事務長' && input.jimuHolder && input.jimuHolder.会員ID !== m.会員ID) {
+    return { ok: false, message: 'この回の事務長の無料は ' + input.jimuHolder.表示名 + ' が使っています（1回に1人）。先にそちらを直してください' };
+  }
+  if (type === '免除' && !k.isExempt(m)) return { ok: false, message: '「免除」は区分が部長・副部長・免除の人だけ選べます' };
+  if (ex && ex.支払い種別 === type) return { ok: false, message: 'すでに「' + type + '」で記録されています' };
+
+  var use = type === '券' ? 1 : 0;
+  var after = remaining + back - use;
+  if (after < 0) return { ok: false, message: '回数券の残りがありません。先に［券を付与］してください' };
+
+  var p = input.prices || {};
+  var amount = 0;
+  if (type === '都度' || type === '体験') {
+    var price = p[type === '都度' ? 'drop_in' : 'trial'];
+    if (!price) return { ok: false, message: '料金表の設定が足りません' };
+    amount = Number(price.金額) || 0;
+  }
+  // 入会日＝初めて出席した日。空か、記録する回より後なら、その回の日付にする
+  var joinDate = !m.入会日 || String(m.入会日) > String(s.日付) ? String(s.日付) : null;
+  return { ok: true, mode: ex ? 'change' : 'add', attendance: { 支払い種別: type, 金額: amount, 消化: use === 1 }, remainingAfter: after, joinDate: joinDate };
+}
+
+// 管理画面で選べる練習の回：中止を除き、今日までの新しい順に n 件
+function recentSessionsForAdmin(sessions, todayStr, n) {
+  return sessions.filter(function (s) { return s.状態 !== '中止' && String(s.日付) <= todayStr; })
+    .sort(function (a, b) {
+      if (a.日付 !== b.日付) return a.日付 < b.日付 ? 1 : -1;
+      return (a.時間帯 === '夜' ? 0 : 1) - (b.時間帯 === '夜' ? 0 : 1); // 同じ日なら夜が新しい
+    })
+    .slice(0, n || 6);
+}
+
+if (typeof module !== 'undefined') module.exports = { validateRemaining, planMemberDeletion, recountSessions, todayUnpaidTotal, planAdminAttendance, recentSessionsForAdmin, ADMIN_ATT_TYPES, DELETE_MAX_ATTENDANCE };
