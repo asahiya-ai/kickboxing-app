@@ -154,3 +154,36 @@ test('選べる回：中止と未来を除き、新しい順（同じ日は夜�
   ], '2026-10-07', 6);
   assert.deepEqual(list.map(s => s.開催ID), ['K3', 'K2', 'K1']);
 });
+
+// ---------- 見直しで直した点（2026-10-07） ----------
+test('初回無料は初めて来た回だけ（前の回に出席がある・ほかで入会済みなら止める）', () => {
+  const earlier = plan({ member: mem({ 入会日: '2026-09-26' }), others: [{ 日付: '2026-09-26', 支払い種別: '券' }] });
+  assert.equal(earlier.ok, false);
+  assert.match(earlier.message, /初めて来た回だけ/);
+  const joined = plan({ others: [{ 日付: '2026-10-10', 支払い種別: '入会' }] });
+  assert.equal(joined.ok, false);
+  // 後の回にだけ出席がある（初回の記録漏れを後から入れる）は OK
+  assert.equal(plan({ others: [{ 日付: '2026-10-10', 支払い種別: '券' }] }).ok, true);
+});
+
+test('事務長の無料が埋まった回に、入会済みの副事務長を初回無料で入れて抜けることはできない', () => {
+  const r = plan({ member: mem({ 区分: '副事務長', 入会日: '2026-01-10' }), others: [{ 日付: '2026-01-10', 支払い種別: '券' }],
+    jimuHolder: { 会員ID: 'M9', 表示名: 'シンさん' } });
+  assert.equal(r.ok, false);
+});
+
+test('入会日の回を取り消すと、入会日は残りの出席のいちばん古い日に（無ければ空に）戻る', () => {
+  const ex = { 会員ID: 'M1', 支払い種別: '入会', 消化: false };
+  assert.equal(plan({ type: '取消', existing: ex, member: mem({ 入会日: '2026-10-07' }) }).joinDate, '');
+  assert.equal(plan({ type: '取消', existing: ex, member: mem({ 入会日: '2026-10-07' }),
+    others: [{ 日付: '2026-10-14' }, { 日付: '2026-10-10' }] }).joinDate, '2026-10-10');
+  // 入会日ではない回の取消は入会日を変えない
+  assert.equal(plan({ type: '取消', existing: ex, member: mem({ 入会日: '2026-09-26' }) }).joinDate, null);
+});
+
+test('まだ先の回には記録できない', () => {
+  const r = plan({ session: Object.assign({}, sess, { 日付: '2026-10-10' }), todayStr: '2026-10-07' });
+  assert.equal(r.ok, false);
+  assert.match(r.message, /まだ先/);
+  assert.equal(plan({ todayStr: '2026-10-07' }).ok, true);
+});

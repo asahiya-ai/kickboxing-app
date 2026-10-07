@@ -296,9 +296,10 @@ function attBoxHtml(m) {
   const p = membersMeta.prices || {};
   const yen = (v) => (v === null || v === undefined ? '' : ' ' + Number(v).toLocaleString() + '円');
   const btn = (type, label, cls) => '<button data-att="' + type + '" data-id="' + id + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + label + '</button>';
+  const def = (ss.find(s => s.current) || ss[0]).開催ID; // いま開いている回（無ければいちばん新しい回）
   return '<div class="att-box"><div class="att-title">出席を記録・直す</div>'
-    + '<select data-att-sess="' + id + '">' + ss.map(s => '<option value="' + esc(s.開催ID) + '">' + esc(sessionLabel(s)) + ((m.att || {})[s.開催ID] ? '　✔出席' : '') + '</option>').join('') + '</select>'
-    + '<div class="att-now" data-att-now="' + id + '">' + attNowHtml(m, ss[0].開催ID) + '</div>'
+    + '<select data-att-sess="' + id + '">' + ss.map(s => '<option value="' + esc(s.開催ID) + '"' + (s.開催ID === def ? ' selected' : '') + '>' + esc(sessionLabel(s)) + ((m.att || {})[s.開催ID] ? '　✔出席' : '') + '</option>').join('') + '</select>'
+    + '<div class="att-now" data-att-now="' + id + '">' + attNowHtml(m, def) + '</div>'
     + '<div class="att-btns">'
     + btn('入会', '初回無料（入会）', 'free')
     + btn('券', '券を1回使う')

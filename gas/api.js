@@ -409,7 +409,12 @@ function adminMembers() {
     ok: true,
     kubunList: KUBUN_LIST,
     prices: { drop_in: p.drop_in ? p.drop_in.金額 : null, trial: p.trial ? p.trial.金額 : null },
-    sessions: recent.map(function (s) { return { 開催ID: s.開催ID, 通算番号: s.通算番号, 日付: s.日付, 時間帯: s.時間帯, today: s.日付 === todayStr, jimu: jimuBySession[s.開催ID] || '' }; }),
+    // current：いま開いている回（昼と夜がある日は時刻で選ぶ）。画面はこれを最初に選んでおく
+    sessions: (function () {
+      var cur = pickTodaySession(sessions, todayStr, new Date(), Repo.setting('夜の境目時刻', '17:00'));
+      return recent.map(function (s) { return { 開催ID: s.開催ID, 通算番号: s.通算番号, 日付: s.日付, 時間帯: s.時間帯, today: s.日付 === todayStr,
+        current: !!cur && cur.開催ID === s.開催ID, jimu: jimuBySession[s.開催ID] || '' }; });
+    })(),
     list: members.filter(function (m) { return m.状態 !== '退会'; }).map(function (m) {
       var mine = mineById[m.会員ID] || [];
       var att = {};
@@ -677,7 +682,12 @@ function adminAttendance(body, admin) {
     var inSession = s ? attendances.filter(function (a) { return a.開催ID === s.開催ID && a.状態 === '有効'; }) : [];
     var existing = m ? inSession.filter(function (a) { return a.会員ID === m.会員ID; })[0] || null : null;
     var jimuHolder = inSession.filter(function (a) { return a.支払い種別 === '事務長' && m && a.会員ID !== m.会員ID; })[0] || null;
-    var plan = planAdminAttendance({ member: m, session: s, existing: existing, type: body.type, prices: Repo.prices(), jimuHolder: jimuHolder });
+    var sessDate = {};
+    sessions.forEach(function (x) { sessDate[x.開催ID] = x.日付; });
+    var others = m ? attendances.filter(function (a) { return a.会員ID === m.会員ID && a.状態 === '有効' && (!s || a.開催ID !== s.開催ID); })
+      .map(function (a) { return { 日付: sessDate[a.開催ID] || String(a.日時).slice(0, 10), 支払い種別: a.支払い種別 }; }) : [];
+    var plan = planAdminAttendance({ member: m, session: s, existing: existing, type: body.type, prices: Repo.prices(), jimuHolder: jimuHolder,
+      others: others, todayStr: formatDate(new Date()) });
     if (!plan.ok) return plan;
 
     var nowStr = formatDateTime(new Date());
@@ -700,7 +710,9 @@ function adminAttendance(body, admin) {
     var what = plan.mode === 'cancel' ? '出席を取消（' + existing.支払い種別 + '）'
       : plan.mode === 'change' ? existing.支払い種別 + '→' + plan.attendance.支払い種別 : plan.attendance.支払い種別 + 'で記録';
     var patch = { 残り回数: plan.remainingAfter, 備考: (m.備考 || '') + ' / ' + formatDate(new Date()) + ' ' + label + ' ' + what + ' by ' + admin.会員ID };
-    if (plan.joinDate) patch.入会日 = plan.joinDate;
+    if (plan.joinDate !== null && plan.joinDate !== undefined) patch.入会日 = plan.joinDate;
+    // 休会の人を記録したら有効に戻す（本人がログインして戻ったときと同じ）
+    if (plan.mode === 'add' && m.状態 === '休会') patch.状態 = '有効';
     Repo.update('会員', m._row, patch);
     Repo.update('開催', s._row, { 出席人数: count });
     var remain = isExempt(m) ? '' : '（残り ' + plan.remainingAfter + ' 回）';

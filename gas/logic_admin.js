@@ -60,20 +60,29 @@ function _consumed(a) {
   return a.消化 === true || String(a.消化).toUpperCase() === 'TRUE';
 }
 
-// input: { member, session, existing（その回の有効な出席 or null）, type, prices, jimuHolder（その回で事務長の無料を使っている別の人の出席 or null） }
-// 戻り値: { ok:false, message } ／ { ok:true, mode:'add'|'change'|'cancel', attendance, remainingAfter, joinDate }
+// input: { member, session, existing（その回の有効な出席 or null）, type, prices, jimuHolder（その回で事務長の無料を使っている別の人の出席 or null）,
+//          others（その人のほかの回の有効な出席 [{日付, 支払い種別}]）, todayStr }
+// 戻り値: { ok:false, message } ／ { ok:true, mode:'add'|'change'|'cancel', attendance, remainingAfter, joinDate（null＝入会日は変えない、''＝空に戻す） }
 function planAdminAttendance(input) {
   var k = _kubun();
   var m = input.member, s = input.session, ex = input.existing || null, type = String(input.type || '');
+  var others = input.others || [];
   if (!m) return { ok: false, message: '会員が見つかりません' };
   if (!s) return { ok: false, message: '練習の回を選んでください' };
   if (s.状態 === '中止') return { ok: false, message: '中止の回には記録できません' };
+  if (input.todayStr && String(s.日付) > String(input.todayStr)) return { ok: false, message: 'まだ先の回には記録できません' };
   var remaining = Number(m.残り回数) || 0;
   var back = ex && _consumed(ex) ? 1 : 0; // 前の記録で使っていた券は戻す
 
   if (type === '取消') {
     if (!ex) return { ok: false, message: 'この回の出席はありません' };
-    return { ok: true, mode: 'cancel', attendance: null, remainingAfter: remaining + back, joinDate: null };
+    // 入会日（初めて出席した日）の回を取り消したら、残りの出席のいちばん古い日に（無ければ空に）戻す
+    var joinBack = null;
+    if (m.入会日 && String(m.入会日) === String(s.日付)) {
+      var dates = others.map(function (o) { return String(o.日付); }).sort();
+      joinBack = dates.length ? dates[0] : '';
+    }
+    return { ok: true, mode: 'cancel', attendance: null, remainingAfter: remaining + back, joinDate: joinBack };
   }
   if (ADMIN_ATT_TYPES.indexOf(type) < 0) return { ok: false, message: '種別を選んでください' };
   if (type === '事務長' && !k.isJimu(m)) return { ok: false, message: '「事務長」は区分が事務長・副事務長の人だけ選べます' };
@@ -82,6 +91,12 @@ function planAdminAttendance(input) {
   }
   if (type === '免除' && !k.isExempt(m)) return { ok: false, message: '「免除」は区分が部長・副部長・免除の人だけ選べます' };
   if (ex && ex.支払い種別 === type) return { ok: false, message: 'すでに「' + type + '」で記録されています' };
+  // 初回無料は「初めて来た回」だけ。前の回に出席がある人・ほかの回で入会済みの人には付けられない
+  if (type === '入会') {
+    var earlier = others.some(function (o) { return String(o.日付) < String(s.日付); });
+    var joined = others.some(function (o) { return o.支払い種別 === '入会'; });
+    if (earlier || joined) return { ok: false, message: '初回無料は初めて来た回だけです（この人は前にも出席しています）' };
+  }
 
   var use = type === '券' ? 1 : 0;
   var after = remaining + back - use;
