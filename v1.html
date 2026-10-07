@@ -1,0 +1,2206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>佐世保キックボクシング倶楽部 参加アプリ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+      background: #1a1a2e; color: #eee; min-height: 100vh;
+      font-size: 15px;
+    }
+
+    /* ===== ヘッダー ===== */
+    header {
+      background: linear-gradient(135deg, #e94560, #c0392b);
+      padding: 12px 16px; text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-inner {
+      position:relative; display:flex; align-items:center;
+      justify-content:center; min-height:64px;
+    }
+    header h1 { font-size: clamp(0.72rem, 3.2vw, 1.1rem); font-weight: bold; letter-spacing: 0.5px; text-align:center; line-height:1.4; }
+    header p  { font-size: 0.8rem; opacity: 0.85; margin-top: 2px; text-align:center; }
+    .header-center { text-align:center; padding: 0 70px; }
+    .header-left {
+      position:absolute; left:0; top:50%; transform:translateY(-50%);
+      display:flex; align-items:center;
+    }
+    .header-right {
+      position:absolute; right:0; top:50%; transform:translateY(-50%);
+      display:flex; flex-direction:column; align-items:center; gap:2px;
+    }
+
+    /* ===== 練習日ボタン ===== */
+    .btn-practice-day {
+      background: rgba(255,255,255,0.22);
+      border: 2px solid rgba(255,255,255,0.7);
+      color: #fff;
+      padding: 10px 13px;
+      border-radius: 14px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1.4;
+      text-align: center;
+      white-space: nowrap;
+      min-width: 58px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .btn-practice-day:hover  { background: rgba(255,255,255,0.35); }
+    .btn-practice-day:active { background: rgba(255,255,255,0.45); }
+
+    /* ===== 管理者ログインボタン（未ログイン時） ===== */
+    .btn-admin-login {
+      background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.5);
+      color:#fff; padding:7px 10px; border-radius:12px;
+      font-size:0.72rem; font-weight:bold; cursor:pointer;
+      transition:background 0.2s; white-space:nowrap;
+      line-height:1.35; text-align:center;
+    }
+    .btn-admin-login:hover  { background:rgba(255,255,255,0.28); }
+    .btn-admin-login:active { background:rgba(255,255,255,0.38); }
+    .btn-admin-logout {
+      background:rgba(39,174,96,0.3); border:1px solid rgba(39,174,96,0.8);
+      color:#fff; padding:7px 10px; border-radius:12px;
+      font-size:0.72rem; font-weight:bold; cursor:pointer;
+      transition:background 0.2s; white-space:nowrap;
+      line-height:1.35; text-align:center;
+    }
+    .btn-admin-logout:hover { background:rgba(39,174,96,0.45); }
+    .admin-mode-badge {
+      font-size:0.62rem; color:rgba(255,255,255,0.85);
+      background:rgba(39,174,96,0.3); border:1px solid rgba(39,174,96,0.6);
+      padding:1px 6px; border-radius:8px; margin-top:2px;
+    }
+
+    /* ===== 管理者モード：host-area ===== */
+    .btn-host {
+      background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.5);
+      color:#fff; padding:7px 10px; border-radius:12px;
+      font-size:0.72rem; font-weight:bold; cursor:pointer;
+      transition:background 0.2s; white-space:nowrap;
+      line-height:1.35; text-align:center;
+    }
+    .btn-host:hover  { background:rgba(255,255,255,0.28); }
+    .btn-host:active { background:rgba(255,255,255,0.38); }
+    .btn-host-edit {
+      background:none; border:none; color:rgba(255,255,255,0.65);
+      font-size:0.62rem; cursor:pointer; padding:1px 4px;
+    }
+    .btn-host-edit:hover { color:#fff; }
+    .host-edit-input {
+      width:60px; background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.65);
+      color:#fff; padding:5px 8px; border-radius:8px; font-size:0.9rem;
+      text-align:center; -moz-appearance:textfield;
+    }
+    .host-edit-input:focus { outline:none; border-color:#fff; background:rgba(255,255,255,0.28); }
+    .host-edit-input::-webkit-inner-spin-button,
+    .host-edit-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+    .btn-host-save {
+      background:rgba(255,255,255,0.28); border:1px solid rgba(255,255,255,0.65);
+      color:#fff; padding:4px 9px; border-radius:6px;
+      font-size:0.68rem; font-weight:bold; cursor:pointer;
+    }
+    .btn-host-cancel {
+      background:none; border:1px solid rgba(255,255,255,0.35);
+      color:rgba(255,255,255,0.7); padding:4px 8px;
+      border-radius:6px; font-size:0.68rem; cursor:pointer;
+    }
+    @media (max-width: 600px) {
+      .header-inner { flex-direction: column; align-items: stretch; gap: 4px; }
+      .header-center { text-align: center; }
+      .header-left  { position: static; transform: none; align-self: flex-start; }
+      .header-right { position: static; transform: none; align-self: flex-end; }
+    }
+
+    /* ===== 管理者ログインモーダル ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      align-items: center; justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: #16213e; border-radius: 18px; padding: 28px 24px;
+      border: 1px solid #2a3a5e; width: 100%; max-width: 280px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    .modal-title { font-size: 1.05rem; font-weight: bold; color: #eee; text-align: center; margin-bottom: 4px; }
+    .modal-sub   { font-size: 0.78rem; color: #778; text-align: center; margin-bottom: 20px; }
+    .modal-error { font-size: 0.76rem; color: #e94560; text-align: center; margin-bottom: 10px; display: none; }
+    .modal-input {
+      width: 100%; background: #0f3460; border: 1px solid #3a5070;
+      color: #eee; padding: 12px 14px; border-radius: 10px;
+      font-size: 1rem; margin-bottom: 14px; letter-spacing: 4px; text-align: center;
+    }
+    .modal-input:focus { outline: none; border-color: #e94560; }
+    .btn-modal-login {
+      width: 100%; background: linear-gradient(135deg,#e94560,#c0392b);
+      color: #fff; border: none; padding: 13px; border-radius: 10px;
+      font-size: 0.95rem; font-weight: bold; cursor: pointer;
+      margin-bottom: 10px; box-shadow: 0 3px 10px rgba(233,69,96,0.4);
+    }
+    .btn-modal-login:hover { opacity: 0.9; }
+    .btn-modal-cancel {
+      width: 100%; background: none; border: 1px solid #3a5070; color: #778;
+      padding: 11px; border-radius: 10px; font-size: 0.88rem; cursor: pointer;
+    }
+    .btn-modal-cancel:hover { border-color: #778; color: #aaa; }
+
+    /* ===== GAS同期バー ===== */
+    #sync-bar {
+      display:none; padding:7px 16px; text-align:center;
+      font-size:0.78rem; font-weight:bold; letter-spacing:0.5px;
+      position:sticky; top:58px; z-index:97;
+      transition:opacity 0.3s;
+    }
+    #sync-bar.show    { display:block; }
+    #sync-bar.loading { background:#0d2440; color:#7ec8e3; }
+    #sync-bar.success { background:#0d2e0d; color:#7ecb7e; }
+    #sync-bar.error   { background:#2e0d0d; color:#e38080; }
+
+    /* ===== タブナビ ===== */
+    .tab-nav {
+      display: flex; background: #16213e;
+      border-bottom: 2px solid #e94560;
+      position: sticky; top: 58px; z-index: 99;
+    }
+    .tab-btn {
+      flex: 1; padding: 14px 4px; background: none; border: none;
+      color: #888; font-size: 0.88rem; cursor: pointer;
+      transition: all 0.2s; font-weight: bold; line-height: 1.3; text-align: center;
+    }
+    .tab-btn.active {
+      color: #e94560; border-bottom: 3px solid #e94560;
+      margin-bottom: -2px; background: #1a1a2e;
+    }
+    .tab-btn:hover:not(.active) { color: #ddd; background: #1f2f50; }
+    .tab-badge {
+      display: inline-block; background: #e94560; color: #fff;
+      font-size: 0.6rem; padding: 1px 5px; border-radius: 10px;
+      margin-left: 2px; vertical-align: middle;
+    }
+
+    /* ===== ページ ===== */
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; }
+
+    /* ===== メンバーカード ===== */
+    .member-card {
+      background: #16213e; border-radius: 16px;
+      padding: 20px; margin-bottom: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid #2a3a5e;
+      transition: border-color 0.3s;
+    }
+    .member-card.completing {
+      border-color: #f39c12; box-shadow: 0 0 16px rgba(243,156,18,0.3);
+    }
+    .member-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 12px;
+    }
+    .member-name {
+      font-size: 1.25rem; font-weight: bold;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .member-name::before { content: '🥊'; font-size: 1.1rem; }
+    .round-label {
+      font-size: 0.68rem; color: #7ab;
+      background: rgba(122,170,187,0.15); border: 1px solid #3a5070;
+      padding: 2px 7px; border-radius: 10px; font-weight: normal;
+      white-space: nowrap;
+    }
+    .badge-ok       { background:#27ae60; color:#fff; font-size:0.7rem; padding:3px 9px; border-radius:20px; font-weight:bold; }
+    .badge-warn     { background:#e94560; color:#fff; font-size:0.7rem; padding:3px 9px; border-radius:20px; font-weight:bold; animation:pulse 1.2s infinite; }
+    .badge-done     { background:linear-gradient(135deg,#f39c12,#e67e22); color:#fff; font-size:0.7rem; padding:3px 9px; border-radius:20px; font-weight:bold; }
+    .badge-noticket { background:#444; color:#888; font-size:0.7rem; padding:3px 9px; border-radius:20px; font-weight:bold; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    /* ===== チケット枠 ===== */
+    .tickets { display:flex; gap:7px; margin-bottom:10px; flex-wrap:wrap; }
+    .ticket {
+      flex:1; min-width:54px; background:#0f3460;
+      border:2px dashed #3a5070; border-radius:10px;
+      padding:8px 3px; text-align:center; font-size:0.72rem;
+      color:#778; min-height:72px; display:flex;
+      flex-direction:column; align-items:center; justify-content:center; line-height:1.3;
+    }
+    .ticket.used {
+      background:linear-gradient(135deg,#e94560,#c0392b);
+      border:2px solid #e94560; color:#fff; font-weight:bold;
+    }
+    .ticket-check  { font-size:1.1rem; line-height:1; }
+    .ticket-date-md { font-size:0.95rem; font-weight:bold; line-height:1.2; }
+    .ticket-date-y  { font-size:0.62rem; opacity:0.75; line-height:1; }
+    .no-ticket-msg {
+      background:#0f3460; border:1px dashed #3a5070; border-radius:10px;
+      padding:10px 12px; margin-bottom:10px;
+      font-size:0.8rem; color:#556; text-align:center;
+    }
+
+    /* ===== 事前購入エリア ===== */
+    .prepurchase-area {
+      margin-bottom: 10px;
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(52,152,219,0.1); border: 1px solid #2980b9;
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .prepurchase-area .pp-msg { font-size:0.8rem; color:#5dade2; flex:1; }
+    .btn-prepurchase {
+      background: linear-gradient(135deg,#2980b9,#1a5276);
+      color:#fff; border:none; padding:8px 14px; border-radius:20px;
+      font-size:0.78rem; font-weight:bold; cursor:pointer;
+      white-space:nowrap; box-shadow:0 2px 8px rgba(41,128,185,0.4);
+      transition: opacity 0.2s;
+    }
+    .btn-prepurchase:hover { opacity:0.88; }
+    .reserved-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(52,152,219,0.15); border: 1px solid #2980b9;
+      color: #5dade2; font-size:0.75rem; font-weight:bold;
+      padding: 5px 12px; border-radius: 20px; margin-bottom: 10px;
+    }
+
+    /* ===== カードフッター ===== */
+    .card-footer {
+      display:flex; align-items:center;
+      justify-content:space-between; gap:8px; flex-wrap:wrap;
+    }
+    .remaining { font-size:1.0rem; color:#aaa; }
+    .remaining span { font-size:1.7rem; font-weight:bold; color:#e94560; }
+
+    /* ===== 5回完了エリア ===== */
+    .completion-area {
+      width:100%; margin-top:12px;
+      background:rgba(243,156,18,0.1); border:1px solid #f39c12;
+      border-radius:10px; padding:12px 14px;
+    }
+    .completion-msg { font-size:0.9rem; color:#f39c12; font-weight:bold; margin-bottom:10px; }
+    .completion-btns { display:flex; gap:8px; }
+
+    /* ===== ボタン ===== */
+    .btn-attend {
+      background:linear-gradient(135deg,#e94560,#c0392b);
+      color:#fff; border:none; padding:16px 28px; border-radius:30px;
+      font-size:1.15rem; font-weight:bold; cursor:pointer;
+      transition:transform 0.15s,opacity 0.15s;
+      box-shadow:0 4px 14px rgba(233,69,96,0.5); white-space:nowrap;
+    }
+    .btn-attend:hover { transform:scale(1.04); opacity:0.92; }
+    .btn-undo {
+      background:none; border:1px solid #556; color:#889;
+      padding:6px 12px; border-radius:20px;
+      font-size:0.76rem; cursor:pointer; transition:all 0.2s; white-space:nowrap;
+    }
+    .btn-undo:hover { border-color:#e94560; color:#e94560; }
+    .btn-move-archive {
+      flex:1; background:linear-gradient(135deg,#f39c12,#e67e22);
+      color:#fff; border:none; padding:10px 14px; border-radius:25px;
+      font-size:0.88rem; font-weight:bold; cursor:pointer;
+      box-shadow:0 3px 10px rgba(243,156,18,0.4); white-space:nowrap; text-align:center;
+    }
+    .btn-move-archive:hover { opacity:0.9; }
+    .btn-undo-complete {
+      background:none; border:1px solid #556; color:#889;
+      padding:10px 14px; border-radius:25px;
+      font-size:0.82rem; cursor:pointer; transition:all 0.2s; white-space:nowrap;
+    }
+    .btn-undo-complete:hover { border-color:#e94560; color:#e94560; }
+    .btn-history {
+      background:none; border:1px solid #3a5070; color:#7ab;
+      padding:5px 11px; border-radius:16px;
+      font-size:0.74rem; cursor:pointer; transition:all 0.2s;
+    }
+    .btn-history:hover { border-color:#7ab; background:rgba(122,170,187,0.1); }
+
+    /* ===== 閲覧のみヒント ===== */
+    .view-only-hint {
+      font-size:0.72rem; color:#556; border:1px dashed #3a5070;
+      border-radius:20px; padding:5px 12px; white-space:nowrap;
+    }
+
+    /* ===== メンバー追加フォーム ===== */
+    .add-member-area {
+      background:#16213e; border-radius:14px;
+      padding:14px; margin-bottom:14px; border:1px dashed #3a5070;
+    }
+    .add-member-area h3 { font-size:0.9rem; margin-bottom:10px; color:#aaa; }
+    .input-row { display:flex; gap:8px; }
+    input[type="text"], input[type="date"] {
+      flex:1; background:#0f3460; border:1px solid #3a5070;
+      color:#eee; padding:10px 12px; border-radius:8px; font-size:0.9rem;
+    }
+    input::placeholder { color:#556; }
+    input:focus { outline:none; border-color:#e94560; }
+    select {
+      width:100%; background:#0f3460; border:1px solid #3a5070;
+      color:#eee; padding:10px 12px; border-radius:8px; font-size:0.9rem;
+      appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%23aaa'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 12px center;
+    }
+    select:focus { outline:none; border-color:#e94560; }
+    select option { background:#0f3460; }
+    .btn-add {
+      background:#e94560; color:#fff; border:none;
+      padding:10px 14px; border-radius:8px;
+      font-size:0.88rem; font-weight:bold; cursor:pointer; white-space:nowrap;
+    }
+    .btn-add:hover { opacity:0.88; }
+
+    /* ===== 購入フォーム ===== */
+    .purchase-form {
+      background:#16213e; border-radius:14px;
+      padding:16px; margin-bottom:16px; border:1px solid #2a3a5e;
+    }
+    .purchase-form h3 { font-size:1rem; margin-bottom:14px; color:#e94560; }
+    .form-group { margin-bottom:14px; }
+    .form-group label { display:block; font-size:0.8rem; color:#aaa; margin-bottom:6px; }
+    .form-group input, .form-group select { width:100%; }
+    .toggle-group { display:flex; gap:8px; }
+    .toggle-btn {
+      flex:1; padding:11px 8px; border-radius:10px;
+      font-size:0.85rem; font-weight:bold; cursor:pointer;
+      transition:all 0.2s; text-align:center;
+      border:2px solid #3a5070; background:#0f3460; color:#888;
+    }
+    .toggle-btn.active {
+      background:linear-gradient(135deg,#e94560,#c0392b);
+      border-color:#e94560; color:#fff;
+    }
+    .price-display {
+      background:#0f3460; border:1px solid #3a5070;
+      color:#e94560; padding:12px 14px; border-radius:8px;
+      font-size:1.3rem; font-weight:bold; letter-spacing:1px;
+    }
+    .btn-purchase {
+      width:100%; background:linear-gradient(135deg,#f39c12,#e67e22);
+      color:#fff; border:none; padding:14px; border-radius:10px;
+      font-size:1rem; font-weight:bold; cursor:pointer; margin-top:4px;
+      box-shadow:0 3px 10px rgba(243,156,18,0.4);
+    }
+    .btn-purchase:hover { opacity:0.9; }
+
+    /* ===== 購入履歴リスト ===== */
+    .history-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .history-header h3 { font-size:0.95rem; color:#aaa; }
+    .history-count { background:#e94560; color:#fff; font-size:0.75rem; padding:2px 10px; border-radius:20px; }
+    .history-item {
+      background:#16213e; border-radius:10px;
+      padding:12px 14px; margin-bottom:8px; border:1px solid #2a3a5e;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .history-item .hi-name { font-weight:bold; font-size:0.95rem; }
+    .history-item .hi-date { font-size:0.75rem; color:#778; margin-top:2px; }
+    .history-item .hi-price { color:#f39c12; font-weight:bold; font-size:1rem; }
+    .btn-del {
+      background:none; border:1px solid #556; color:#889;
+      padding:4px 10px; border-radius:16px; font-size:0.75rem;
+      cursor:pointer; margin-left:8px;
+    }
+    .btn-del:hover { border-color:#e94560; color:#e94560; }
+    .btn-member-del {
+      background:none; border:1px solid #556; color:#889;
+      padding:5px 11px; border-radius:16px;
+      font-size:0.74rem; cursor:pointer; transition:all 0.2s;
+    }
+    .btn-member-del:hover { border-color:#e94560; color:#e94560; background:rgba(233,69,96,0.08); }
+    .btn-cancel-prepurchase {
+      background:none; border:1px solid #556; color:#889;
+      padding:4px 10px; border-radius:16px; font-size:0.74rem;
+      cursor:pointer; transition:all 0.2s; white-space:nowrap;
+    }
+    .btn-cancel-prepurchase:hover { border-color:#e94560; color:#e94560; }
+
+    /* ===== 購入状態バッジ ===== */
+    .state-badge { font-size:0.72rem; font-weight:bold; padding:3px 9px; border-radius:12px; white-space:nowrap; }
+    .state-active   { background:rgba(39,174,96,0.2);   color:#2ecc71; border:1px solid #27ae60; }
+    .state-reserved { background:rgba(41,128,185,0.2);  color:#5dade2; border:1px solid #2980b9; }
+    .state-used     { background:rgba(120,120,120,0.15); color:#888;    border:1px solid #556; }
+
+    /* ===== 完了者一覧 ===== */
+    .archive-card {
+      background:#16213e; border-radius:14px;
+      padding:16px; margin-bottom:14px;
+      border:1px solid #f39c12;
+      box-shadow:0 4px 12px rgba(243,156,18,0.15);
+    }
+    .archive-row {
+      display:flex; justify-content:space-between;
+      align-items:center; flex-wrap:wrap; gap:6px;
+    }
+    .archive-name {
+      font-size:1.05rem; font-weight:bold;
+      display:flex; align-items:center; gap:6px;
+    }
+    .archive-name::before { content:'🏆'; }
+    .archive-meta {
+      display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;
+    }
+    .archive-chip {
+      background:#0f3460; border:1px solid #2a3a5e;
+      border-radius:8px; padding:5px 12px; font-size:0.78rem; color:#aaa;
+    }
+    .archive-chip strong { color:#e94560; }
+    .archive-chip.date-chip strong { color:#f39c12; }
+    .btn-delete-member {
+      background:none; border:1px solid #333;
+      color:#555; padding:3px 7px; border-radius:6px;
+      font-size:0.65rem; cursor:pointer; white-space:nowrap;
+    }
+    .btn-delete-member:hover { border-color:#e94560; color:#e94560; }
+
+    /* ===== 個人履歴ページ ===== */
+    .history-member-selector {
+      background:#16213e; border-radius:12px;
+      padding:14px; margin-bottom:14px; border:1px solid #2a3a5e;
+    }
+    .history-member-selector h3 { font-size:0.9rem; color:#aaa; margin-bottom:10px; }
+    .member-select-btns { display:flex; flex-wrap:wrap; gap:8px; }
+    .btn-member-select {
+      background:#0f3460; border:1px solid #3a5070;
+      color:#ccc; padding:8px 14px; border-radius:20px;
+      font-size:0.82rem; cursor:pointer; transition:all 0.2s;
+    }
+    .btn-member-select.active,
+    .btn-member-select:hover { background:#e94560; border-color:#e94560; color:#fff; }
+    .btn-member-select.completed-member { border-color:#f39c12; color:#f39c12; }
+    .btn-member-select.completed-member:hover,
+    .btn-member-select.completed-member.active { background:#f39c12; border-color:#f39c12; color:#fff; }
+    .history-detail {
+      background:#16213e; border-radius:14px;
+      padding:16px; border:1px solid #2a3a5e;
+    }
+    .history-detail-header {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #2a3a5e;
+    }
+    .history-detail-name { font-size:1.1rem; font-weight:bold; }
+    .status-chip-completed {
+      font-size:0.7rem; color:#f39c12; background:rgba(243,156,18,0.12);
+      border:1px solid #f39c12; padding:2px 8px; border-radius:10px; margin-left:6px;
+    }
+    .history-total-badge {
+      background:linear-gradient(135deg,#e94560,#c0392b);
+      color:#fff; font-size:0.82rem; font-weight:bold;
+      padding:4px 12px; border-radius:20px; white-space:nowrap;
+    }
+    .history-date-item {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 0; border-bottom:1px solid #1e2e4a;
+    }
+    .history-date-item:last-child { border-bottom:none; }
+    .hdi-round { color:#e94560; font-size:0.8rem; font-weight:bold; min-width:52px; white-space:nowrap; }
+    .hdi-sep   { color:#3a5070; font-size:0.8rem; }
+    .hdi-date  { color:#ccc; font-size:0.88rem; }
+
+    .empty-msg { text-align:center; color:#556; padding:30px; font-size:0.9rem; }
+
+    /* ===== お気に入り ===== */
+    .history-group-label {
+      width:100%; font-size:0.75rem; color:#778; letter-spacing:0.5px;
+      margin:10px 0 6px; padding-bottom:5px; border-bottom:1px solid #2a3a5e;
+    }
+    .member-btn-row { display:flex; align-items:center; gap:4px; width:100%; }
+    .member-btn-row .btn-member-select { flex:1; text-align:left; }
+    .btn-star {
+      background:none; border:none; font-size:1.15rem;
+      cursor:pointer; padding:4px 5px; line-height:1;
+      transition:transform 0.15s; flex-shrink:0;
+    }
+    .btn-star:hover:not(.fav-auto) { transform:scale(1.25); }
+    .btn-star.fav-on   { color:#f39c12; }
+    .btn-star.fav-off  { color:#3a5070; }
+    .btn-star.fav-auto { color:#f39c12; cursor:default; opacity:0.55; }
+
+    /* ===== 名前編集 ===== */
+    .btn-edit {
+      background:none; border:1px solid #3a5070; color:#7ab;
+      padding:3px 8px; border-radius:12px; font-size:0.7rem;
+      cursor:pointer; transition:all 0.2s; white-space:nowrap; flex-shrink:0;
+    }
+    .btn-edit:hover { border-color:#7ab; background:rgba(122,170,187,0.1); }
+    .member-edit-row { display:flex; align-items:center; gap:6px; width:100%; padding:4px 0; }
+    .edit-name-input {
+      flex:1; background:#0f3460; border:1px solid #e94560;
+      color:#eee; padding:7px 10px; border-radius:8px; font-size:0.85rem; min-width:0;
+    }
+    .edit-name-input:focus { outline:none; }
+    .btn-edit-save {
+      background:#27ae60; color:#fff; border:none;
+      padding:7px 12px; border-radius:8px; font-size:0.78rem;
+      cursor:pointer; white-space:nowrap; flex-shrink:0;
+    }
+    .btn-edit-cancel {
+      background:none; border:1px solid #556; color:#889;
+      padding:7px 10px; border-radius:8px; font-size:0.78rem;
+      cursor:pointer; white-space:nowrap; flex-shrink:0;
+    }
+
+    /* ===== メンバー統計テキスト ===== */
+    .member-stats { font-size:0.65rem; color:#778; font-weight:normal; }
+    .member-btn-col { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+    .member-btn-col .btn-member-select { width:100%; }
+    .member-btn-row { display:flex; align-items:flex-start; gap:4px; width:100%; }
+    .member-stats-row { display:flex; align-items:center; gap:3px; padding-left:2px; flex-wrap:wrap; }
+    .btn-edit-count {
+      background:none; border:none; font-size:0.72rem; cursor:pointer;
+      padding:1px 2px; opacity:0.55; transition:opacity 0.2s; line-height:1;
+    }
+    .btn-edit-count:hover { opacity:1; }
+    .legacy-edit-row { display:flex; align-items:center; gap:5px; flex-wrap:wrap; padding-left:2px; margin-top:1px; }
+    .legacy-edit-input {
+      width:62px; background:#0f3460; border:1px solid #e94560;
+      color:#eee; padding:4px 8px; border-radius:6px; font-size:0.82rem;
+      -moz-appearance:textfield;
+    }
+    .legacy-edit-input::-webkit-inner-spin-button,
+    .legacy-edit-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+    .legacy-edit-input:focus { outline:none; }
+
+    /* ===== 移行データ表示 ===== */
+    .legacy-record {
+      margin-top:10px; padding:8px 14px;
+      background:rgba(122,170,187,0.07); border:1px solid #2a3a5e;
+      border-radius:8px; font-size:0.8rem; color:#7ab; text-align:center;
+    }
+
+    /* ===== トースト ===== */
+    #toast {
+      position:fixed; bottom:24px; left:50%;
+      transform:translateX(-50%) translateY(80px);
+      background:#27ae60; color:#fff;
+      padding:12px 22px; border-radius:25px;
+      font-size:0.88rem; font-weight:bold;
+      box-shadow:0 4px 14px rgba(0,0,0,0.4);
+      transition:transform 0.3s ease;
+      z-index:999; white-space:nowrap; max-width:92vw; text-align:center;
+    }
+    #toast.show { transform:translateX(-50%) translateY(0); }
+    #toast.error { background:#e94560; }
+    #toast.gold  { background:linear-gradient(135deg,#f39c12,#e67e22); }
+    #toast.blue  { background:linear-gradient(135deg,#2980b9,#1a5276); }
+
+    /* ===== 出席表（参加日グリッド） ===== */
+    .attend-subnav { display:flex; gap:8px; margin-bottom:14px; }
+    .attend-subnav .toggle-btn { flex:1; }
+    .attendance-grid-wrap {
+      overflow-x:auto; border:1px solid #2a3a5e; border-radius:12px;
+      margin-bottom:16px; -webkit-overflow-scrolling:touch;
+    }
+    table.attendance-grid { border-collapse:collapse; width:100%; font-size:0.74rem; }
+    .attendance-grid th, .attendance-grid td {
+      padding:7px 9px; text-align:center; border-bottom:1px solid #1e2e4a; white-space:nowrap;
+    }
+    .attendance-grid thead th {
+      background:#0f3460; color:#7ab; font-weight:bold; position:sticky; top:0; z-index:1;
+    }
+    .attendance-grid th.member-col, .attendance-grid td.member-col {
+      position:sticky; left:0; background:#16213e; text-align:left; z-index:2;
+      border-right:1px solid #2a3a5e; font-weight:bold; padding-right:12px;
+    }
+    .attendance-grid thead th.member-col { z-index:3; background:#0f3460; }
+    .attendance-grid td.checked { color:#2ecc71; font-weight:bold; }
+
+    /* ===== 参加日まとめて記録パネル ===== */
+    .bulk-attend-panel {
+      background:#16213e; border-radius:14px; padding:16px;
+      margin-bottom:16px; border:1px solid #2a3a5e;
+    }
+    .bulk-attend-list { max-height:340px; overflow-y:auto; margin:12px 0; }
+    .bulk-attend-row {
+      display:flex; align-items:center; gap:10px; padding:8px 4px;
+      border-bottom:1px solid #1e2e4a; font-size:0.9rem; cursor:pointer;
+    }
+    .bulk-attend-row:last-child { border-bottom:none; }
+    .bulk-attend-row input[type="checkbox"] { width:19px; height:19px; accent-color:#e94560; flex-shrink:0; }
+    .bulk-attend-summary { font-size:0.78rem; color:#7ab; margin-bottom:4px; }
+
+    /* ===== 資金管理：3択トグル ===== */
+    .toggle-group.triple .toggle-btn { font-size:0.7rem; padding:9px 3px; line-height:1.5; }
+  </style>
+</head>
+<body>
+
+<!-- ===== 管理者ログインモーダル ===== -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">🔐 管理者ログイン</div>
+    <div class="modal-sub">パスワードを入力してください</div>
+    <div class="modal-error" id="modal-error">パスワードが違います</div>
+    <input type="password" id="modal-pw-input" class="modal-input" placeholder="パスワード"
+      onkeydown="if(event.key==='Enter')doAdminLogin();if(event.key==='Escape')closeAdminModal();" />
+    <button class="btn-modal-login" onclick="doAdminLogin()">ログイン</button>
+    <button class="btn-modal-cancel" onclick="closeAdminModal()">❌ キャンセル（戻る）</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-inner">
+    <!-- ===== 左：練習日ボタン ===== -->
+    <div class="header-left">
+      <a href="https://web-blend.com/#schedule" target="_blank" class="btn-practice-day">🗓️ 練習日</a>
+    </div>
+    <!-- ===== 中央：タイトル ===== -->
+    <div class="header-center">
+      <h1>🥊 佐世保キックボクシング倶楽部　<span id="host-count-inline" style="font-size:0.75rem;font-weight:bold;opacity:0.9;">開催 <span id="host-count-num">〇</span>回目</span></h1>
+      <p id="header-sub">〜参加アプリ〜</p>
+    </div>
+    <!-- ===== 右：管理者ログイン ===== -->
+    <div class="header-right" id="header-right-area">
+      <button class="btn-admin-login" id="btn-show-login" onclick="openAdminModal()">管理者<br>ログイン</button>
+    </div>
+  </div>
+</header>
+<div id="sync-bar"></div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('attend',  this)">📋<br>参加記録</button>
+  <button class="tab-btn"        onclick="switchTab('purchase', this)">🎫<br>チケット確認</button>
+  <button class="tab-btn"        onclick="switchTab('finance', this)">💰<br>資金管理</button>
+  <button class="tab-btn" onclick="switchTab('archive',this)" id="tab-archive" style="display:none">🏆<br>完了者一覧</button>
+  <button class="tab-btn"        onclick="switchTab('history',  this)">📊<br>個人履歴</button>
+</div>
+
+<!-- ===== 参加記録ページ ===== -->
+<div id="page-attend" class="page active">
+  <div style="height:12px"></div>
+  <div id="admin-bulk-attend-area"></div>
+  <div class="attend-subnav">
+    <button class="toggle-btn active" id="btn-view-cards" onclick="setAttendView('cards')">🥊 カード表示</button>
+    <button class="toggle-btn"        id="btn-view-grid"  onclick="setAttendView('grid')">📅 出席表</button>
+  </div>
+  <div id="member-list"></div>
+  <div id="attend-grid-container" style="display:none"></div>
+</div>
+
+<!-- ===== 5回券購入ページ ===== -->
+<div id="page-purchase" class="page">
+  <div style="height:12px"></div>
+  <div id="purchase-page-content"></div>
+</div>
+
+<!-- ===== 資金管理ページ ===== -->
+<div id="page-finance" class="page">
+  <div style="height:12px"></div>
+  <div id="finance-page-content"></div>
+</div>
+
+<!-- ===== 完了者一覧ページ ===== -->
+<div id="page-archive" class="page">
+  <div style="height:12px"></div>
+  <div class="history-header">
+    <h3>🏆 5回参加完了者</h3>
+    <span class="history-count" id="archive-count">0件</span>
+  </div>
+  <div id="archive-list"></div>
+</div>
+
+<!-- ===== 個人履歴ページ ===== -->
+<div id="page-history" class="page">
+  <div style="height:12px"></div>
+  <div class="history-member-selector">
+    <h3>メンバーを選択</h3>
+    <div class="member-select-btns" id="history-member-btns"></div>
+  </div>
+  <div id="history-detail-area"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ======================================================
+  // 管理者認証
+  // ======================================================
+  const ADMIN_PASSWORD_HASH = 'c1f330d0aff31c1c87403f1e4347bcc21aff7c179908723535f2b31723702525';
+
+  async function hashPassword(pw) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  let isAdmin = false;
+
+  function openAdminModal() {
+    document.getElementById('modal-pw-input').value = '';
+    document.getElementById('modal-error').style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('show');
+    setTimeout(() => document.getElementById('modal-pw-input').focus(), 50);
+  }
+
+  function closeAdminModal() {
+    document.getElementById('modal-overlay').classList.remove('show');
+    document.getElementById('modal-pw-input').value = '';
+    document.getElementById('modal-error').style.display = 'none';
+  }
+
+  async function doAdminLogin() {
+    const pw = document.getElementById('modal-pw-input').value;
+    const hashed = await hashPassword(pw);
+    if (hashed === ADMIN_PASSWORD_HASH) {
+      isAdmin = true;
+      closeAdminModal();
+      applyAdminMode();
+      showToast('✅ 管理者ログインしました', 'gold');
+    } else {
+      document.getElementById('modal-error').style.display = 'block';
+      document.getElementById('modal-pw-input').value = '';
+      document.getElementById('modal-pw-input').focus();
+    }
+  }
+
+  function doAdminLogout() {
+    if (!confirm('管理者モードを終了しますか？')) return;
+    isAdmin = false;
+    applyAdminMode();
+    showToast('ログアウトしました');
+  }
+
+  function applyAdminMode() {
+    const rightArea = document.getElementById('header-right-area');
+    const headerSub = document.getElementById('header-sub');
+
+    if (isAdmin) {
+      rightArea.innerHTML = `
+        <div id="host-normal-area">
+          <button id="btn-host-attend" class="btn-host" onclick="recordHostAttend()">開催<br>〇回目</button>
+          <button class="btn-host-edit" onclick="startHostEdit()">✏️ 編集</button>
+        </div>
+        <div id="host-edit-area" style="display:none;flex-direction:column;align-items:center;gap:4px;">
+          <input type="number" id="host-edit-input" class="host-edit-input" min="1"
+            onkeydown="if(event.key==='Enter')saveHostCount();if(event.key==='Escape')cancelHostEdit();" />
+          <div style="display:flex;gap:4px;">
+            <button class="btn-host-save" onclick="saveHostCount()">保存</button>
+            <button class="btn-host-cancel" onclick="cancelHostEdit()">キャンセル</button>
+          </div>
+        </div>
+        <div class="admin-mode-badge" onclick="doAdminLogout()" style="cursor:pointer;" title="クリックでログアウト">管理者モード ✕</div>
+      `;
+      headerSub.textContent = '〜参加アプリ〜（管理者）';
+      updateHostButton();
+      document.getElementById('tab-archive').style.display = '';
+    } else {
+      rightArea.innerHTML = `<button class="btn-admin-login" onclick="openAdminModal()">管理者<br>ログイン</button>`;
+      headerSub.textContent = '〜参加アプリ〜';
+      const numEl2 = document.getElementById('host-count-num');
+      if (numEl2) numEl2.textContent = getHostTotal();
+      document.getElementById('tab-archive').style.display = 'none';
+    }
+
+    renderMembers();
+    renderPurchasePage();
+    renderFinancePage();
+    renderBulkAttendPanel();
+    if (attendView === 'grid') renderAttendGrid();
+  }
+
+  // ======================================================
+  // データ構造
+  // ======================================================
+  const DATA_VERSION = '5';
+
+  function createDefaultMembers() {
+    const base = [
+      { name:'三宅耕平（ミヤさん）',             count:77, isHost:true },
+      { name:'ヨネさん（柔術マスター）',          count:44 },
+      { name:'ジン',                             count:20 },
+      { name:'のぶさん（最強生物）',              count:15 },
+      { name:'うらさん（笑顔の格闘家）',          count:15 },
+      { name:'ジョウさん（鉄鋼）',               count:11 },
+      { name:'シンさん（ローキックマ・シーン）',  count:11 },
+      { name:'アイちゃん（看板娘）',             count:10 },
+      { name:'カンタさん（神速）',               count: 8 },
+      { name:'空手のジョーさん',                 count: 6 },
+      { name:'かっきーさん（料理人）',           count: 5 },
+      { name:'みなみさん♂（社長）',             count: 5 },
+      { name:'みうちゃん（沖縄の星）',           count: 4 },
+      { name:'まりさん道上',                     count: 3 },
+      { name:'ザッキーさん（中国空手）',         count: 3 },
+      { name:'まきサン（ゴルフ）',              count: 3 },
+      { name:'ふうかちゃん（空手）',            count: 3 },
+      { name:'みなみ先生',                      count: 3 },
+      { name:'ゆうさん',                        count: 2 },
+      { name:'山尾さん（ソルジャー）',          count: 2 },
+      { name:'ゆうき君（息子）',               count: 1 },
+      { name:'ハルキ君',                       count: 1 },
+      { name:'キンコーさん',                   count: 1 },
+    ];
+    const now = Date.now();
+    return base.map((d, i) => ({
+      id: 'M' + (now + i),
+      name: d.name,
+      status: 'active',
+      isHost: d.isHost || false,
+      hasTicket5: false,
+      nextTicketPurchased: false,
+      tickets: [null,null,null,null,null],
+      history: [{ type:'legacy', count: d.count }],
+      attendDates: []
+    }));
+  }
+
+  function loadMembers() {
+    const ver = localStorage.getItem('kb_data_version');
+    if (ver === DATA_VERSION) {
+      const raw = localStorage.getItem('kb_members');
+      if (raw) {
+        const list = JSON.parse(raw);
+        list.forEach(m => {
+          if (!m.history)                    m.history              = [];
+          if (!m.status)                     m.status               = 'active';
+          if (m.hasTicket5        == null)   m.hasTicket5           = false;
+          if (m.nextTicketPurchased == null) m.nextTicketPurchased  = false;
+          if (!('isHost' in m))              m.isHost               = false;
+          if (!Array.isArray(m.attendDates)) m.attendDates          = [];
+        });
+        return list;
+      }
+    }
+    const list = createDefaultMembers();
+    saveMembers(list);
+    localStorage.removeItem('kb_purchases');
+    localStorage.removeItem('kb_archive');
+    localStorage.removeItem('kb_favorites');
+    localStorage.setItem('kb_data_version', DATA_VERSION);
+    return list;
+  }
+  function saveMembers(m) { localStorage.setItem('kb_members', JSON.stringify(m)); }
+
+  function loadPurchases() {
+    const raw = localStorage.getItem('kb_purchases');
+    return raw ? JSON.parse(raw) : [];
+  }
+  function savePurchases(p) { localStorage.setItem('kb_purchases', JSON.stringify(p)); }
+
+  function loadArchive() {
+    const raw = localStorage.getItem('kb_archive');
+    return raw ? JSON.parse(raw) : [];
+  }
+  function saveArchive(a) { localStorage.setItem('kb_archive', JSON.stringify(a)); }
+
+  function loadFavorites() {
+    const raw = localStorage.getItem('kb_favorites');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  }
+  function saveFavorites(set) {
+    localStorage.setItem('kb_favorites', JSON.stringify([...set]));
+  }
+  function isFav(m, favs) {
+    return (m.status === 'active' && m.hasTicket5) || favs.has(m.id);
+  }
+  function toggleFavorite(id) {
+    const members = loadMembers();
+    const m = members.find(x => x.id === id);
+    if (!m || (m.status === 'active' && m.hasTicket5)) return;
+    const favs = loadFavorites();
+    if (favs.has(id)) favs.delete(id); else favs.add(id);
+    saveFavorites(favs);
+    renderHistoryMemberBtns();
+    if (buyType === 'return') setBuyType('return');
+    showToast(favs.has(id) ? `${m.name} さんを★に追加しました` : `${m.name} さんの★を解除しました`);
+    saveToGAS();
+  }
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function todayISO() { return new Date().toISOString().slice(0,10); }
+
+  function getBaseName(name) { return name.replace(/（[^）]*）/, '').trim(); }
+  function getNickname(name) { const m = name.match(/（[^）]*）/); return m ? m[0] : ''; }
+
+  function getMemberTotal(m) {
+    if (!m) return 0;
+    const legacy = (m.history || []).find(e => e && e.type === 'legacy');
+    const legacyCount = legacy ? legacy.count : 0;
+    const newCount = (m.history || []).filter(e =>
+      typeof e === 'string' || (e && (e.type === 'ticket5' || e.type === 'host'))
+    ).length;
+    return legacyCount + newCount;
+  }
+
+  function getMemberRound(m) {
+    const purchases = loadPurchases();
+    const count = purchases.filter(p => p.memberId === m.id || p.name === m.name).length;
+    return Math.max(count, 1);
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = type;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // ======================================================
+  // 参加記録ページ
+  // ======================================================
+  function renderMembers() {
+    const members = loadMembers();
+    const active  = members.filter(m => m.status === 'active' && m.hasTicket5);
+    const container = document.getElementById('member-list');
+
+    if (active.length === 0) {
+      container.innerHTML = '<div class="empty-msg">5回券を持つメンバーがいません。<br>'
+        + (isAdmin ? '「5回券購入」タブから購入してください。' : '管理者が5回券を購入すると表示されます。')
+        + '</div>';
+      renderHistoryMemberBtns(); return;
+    }
+
+    container.innerHTML = active.map(m => {
+      const usedCount  = m.tickets.filter(t => t !== null).length;
+      const remaining  = 5 - usedCount;
+      const allDone    = usedCount === 5;
+      const round      = getMemberRound(m);
+
+      let badge;
+      if (!m.hasTicket5) badge = `<span class="badge-noticket">5回券なし</span>`;
+      else if (allDone)  badge = `<span class="badge-done">🏆 5回達成！</span>`;
+      else               badge = `<span class="badge-ok">残り ${remaining} 回</span>`;
+
+      const roundLabel = m.hasTicket5
+        ? `<span class="round-label">${round}回目の券</span>` : '';
+
+      let ticketSection = '';
+      if (m.hasTicket5) {
+        const chips = m.tickets.map((t, i) => {
+          if (t) {
+            const parts = t.split('/');
+            const md = `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+            const y  = parts[0];
+            return `<div class="ticket used">
+              <span class="ticket-check">✅</span>
+              <span class="ticket-date-md">${md}</span>
+              <span class="ticket-date-y">${y}</span>
+            </div>`;
+          }
+          return `<div class="ticket">チケット<br>${i+1}</div>`;
+        }).join('');
+        ticketSection = `<div class="tickets">${chips}</div>`;
+      } else {
+        ticketSection = `<div class="no-ticket-msg">5回券未購入 ― 「5回券購入」タブで購入してください</div>`;
+      }
+
+      let completionArea = '';
+      if (isAdmin && m.hasTicket5 && allDone && !m.nextTicketPurchased) {
+        completionArea = `
+          <div class="completion-area">
+            <div class="completion-msg">🏆 ${getBaseName(m.name)} さん 5回参加達成！おめでとうございます！</div>
+            <div class="completion-btns">
+              <button class="btn-undo-complete" onclick="undoComplete('${m.id}')">← 1つ戻す</button>
+              <button class="btn-move-archive"  onclick="moveToArchive('${m.id}')">完了者一覧へ移動 →</button>
+            </div>
+          </div>`;
+      }
+
+      let btnRow = '';
+      if (isAdmin) {
+        btnRow = `
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            ${(m.hasTicket5 && usedCount > 0 && !allDone)
+              ? `<button class="btn-undo" onclick="undoAttend('${m.id}')">← 取消</button>` : ''}
+            <button class="btn-history" onclick="openHistory('${m.id}')">履歴を見る</button>
+            <button class="btn-member-del" onclick="deleteMember('${m.id}')">削除</button>
+            ${(m.hasTicket5 && !allDone)
+              ? `<button class="btn-attend" onclick="recordAttend('${m.id}')">✊ 参加</button>` : ''}
+          </div>`;
+      } else {
+        btnRow = `
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button class="btn-history" onclick="openHistory('${m.id}')">履歴を見る</button>
+            <span class="view-only-hint">👁 閲覧のみ</span>
+          </div>`;
+      }
+
+      return `
+        <div class="member-card${(isAdmin && m.hasTicket5 && allDone && !m.nextTicketPurchased) ? ' completing' : ''}" id="card-${m.id}">
+          <div class="member-header">
+            <div class="member-name">${getBaseName(m.name)}${roundLabel}</div>
+            ${badge}
+          </div>
+          ${ticketSection}
+          <div class="card-footer">
+            <div class="remaining">
+              ${(m.hasTicket5 && !allDone) ? `残り <span>${remaining}</span> / 5` : '&nbsp;'}
+            </div>
+            ${btnRow}
+          </div>
+          ${completionArea}
+        </div>`;
+    }).join('');
+
+    renderHistoryMemberBtns();
+  }
+
+  // ======================================================
+  // 出席表（参加日グリッド）＆ まとめて記録
+  // ======================================================
+  let attendView = 'cards';
+
+  function setAttendView(view) {
+    attendView = view;
+    const btnCards = document.getElementById('btn-view-cards');
+    const btnGrid  = document.getElementById('btn-view-grid');
+    if (btnCards) btnCards.classList.toggle('active', view === 'cards');
+    if (btnGrid)  btnGrid.classList.toggle('active', view === 'grid');
+    const listEl = document.getElementById('member-list');
+    const gridEl = document.getElementById('attend-grid-container');
+    if (listEl) listEl.style.display = view === 'cards' ? '' : 'none';
+    if (gridEl) gridEl.style.display = view === 'grid'  ? '' : 'none';
+    if (view === 'grid') renderAttendGrid();
+  }
+
+  function getAllAttendDates() {
+    const members = loadMembers();
+    const set = new Set();
+    members.forEach(m => (m.attendDates || []).forEach(d => set.add(d)));
+    return [...set].sort();
+  }
+
+  function sortMembersForList(members) {
+    return [...members].sort((a, b) => {
+      if (a.isHost) return -1;
+      if (b.isHost) return 1;
+      const diff = getMemberTotal(b) - getMemberTotal(a);
+      if (diff !== 0) return diff;
+      return a.name.localeCompare(b.name, 'ja');
+    });
+  }
+
+  function renderAttendGrid() {
+    const container = document.getElementById('attend-grid-container');
+    if (!container) return;
+    const members = loadMembers();
+    const dates = getAllAttendDates();
+    if (dates.length === 0 || members.length === 0) {
+      container.innerHTML = '<div class="empty-msg">まだ参加日の記録がありません。'
+        + (isAdmin ? '<br>上の「📅 参加日をまとめて記録する」から追加してください。' : '')
+        + '</div>';
+      return;
+    }
+    const sorted = sortMembersForList(members);
+    const head = dates.map(d => {
+      const parts = d.split('-');
+      return `<th>${parseInt(parts[1],10)}/${parseInt(parts[2],10)}</th>`;
+    }).join('');
+    const rows = sorted.map(m => {
+      const set = new Set(m.attendDates || []);
+      const cells = dates.map(d => `<td class="${set.has(d) ? 'checked' : ''}">${set.has(d) ? '✅' : ''}</td>`).join('');
+      return `<tr><td class="member-col">${getBaseName(m.name)}</td>${cells}</tr>`;
+    }).join('');
+    container.innerHTML = `
+      <div class="attendance-grid-wrap">
+        <table class="attendance-grid">
+          <thead><tr><th class="member-col">会員</th>${head}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  let bulkAttendOpen = false;
+  let bulkAttendDate = null;
+
+  function toggleBulkAttendPanel() {
+    bulkAttendOpen = !bulkAttendOpen;
+    if (bulkAttendOpen && !bulkAttendDate) bulkAttendDate = todayISO();
+    renderBulkAttendPanel();
+  }
+
+  function onBulkAttendDateChange(v) {
+    bulkAttendDate = v;
+    renderBulkAttendPanel();
+  }
+
+  function renderBulkAttendPanel() {
+    const area = document.getElementById('admin-bulk-attend-area');
+    if (!area) return;
+    if (!isAdmin) { area.innerHTML = ''; bulkAttendOpen = false; return; }
+    if (!bulkAttendOpen) {
+      area.innerHTML = `<button class="btn-purchase" style="margin-bottom:14px;width:100%;" onclick="toggleBulkAttendPanel()">📅 参加日をまとめて記録する</button>`;
+      return;
+    }
+    const members = sortMembersForList(loadMembers());
+    const dateVal = bulkAttendDate || todayISO();
+    const checkedIds = new Set(members.filter(m => (m.attendDates || []).includes(dateVal)).map(m => m.id));
+    area.innerHTML = `
+      <div class="bulk-attend-panel">
+        <h3 style="font-size:1rem;color:#e94560;margin-bottom:12px;">📅 参加日をまとめて記録</h3>
+        <div class="form-group">
+          <label>練習日</label>
+          <input type="date" id="bulk-attend-date" value="${dateVal}" onchange="onBulkAttendDateChange(this.value)" />
+        </div>
+        <div class="bulk-attend-summary">この日に来た人にチェックを入れて保存してください</div>
+        <div class="bulk-attend-list">
+          ${members.map(m => `
+            <label class="bulk-attend-row">
+              <input type="checkbox" value="${m.id}" ${checkedIds.has(m.id) ? 'checked' : ''} />
+              <span>${getBaseName(m.name)}</span>
+            </label>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-purchase" style="flex:1;" onclick="saveBulkAttend()">✅ この内容で保存する</button>
+          <button class="btn-modal-cancel" style="flex:0 0 auto;padding:0 18px;" onclick="toggleBulkAttendPanel()">閉じる</button>
+        </div>
+      </div>`;
+  }
+
+  function saveBulkAttend() {
+    if (!isAdmin) return;
+    const dateEl = document.getElementById('bulk-attend-date');
+    const date = dateEl ? dateEl.value : '';
+    if (!date) { showToast('練習日を選択してください', 'error'); return; }
+    const checkedIds = [...document.querySelectorAll('.bulk-attend-row input[type="checkbox"]:checked')].map(el => el.value);
+    const members = loadMembers();
+    let added = 0, removed = 0;
+    members.forEach(m => {
+      if (!Array.isArray(m.attendDates)) m.attendDates = [];
+      const has = m.attendDates.includes(date);
+      const shouldHave = checkedIds.includes(m.id);
+      if (shouldHave && !has) { m.attendDates.push(date); m.attendDates.sort(); added++; }
+      if (!shouldHave && has) { m.attendDates = m.attendDates.filter(d => d !== date); removed++; }
+    });
+    saveMembers(members);
+    bulkAttendDate = date;
+    renderBulkAttendPanel();
+    if (attendView === 'grid') renderAttendGrid();
+    showToast(`${date} の参加記録を保存しました（追加${added}件・解除${removed}件）`, 'gold');
+    saveToGAS();
+  }
+
+  // ======================================================
+  // 5回券購入ページ：管理者のみ表示
+  // ======================================================
+  function renderPurchasePage() {
+    const container = document.getElementById('purchase-page-content');
+    if (!isAdmin) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:50px 20px;">
+          <div style="font-size:2.5rem;margin-bottom:16px;">🔐</div>
+          <div style="font-size:1rem;color:#aaa;margin-bottom:8px;font-weight:bold;">管理者専用ページ</div>
+          <div style="font-size:0.85rem;color:#556;">右上の「管理者ログイン」からログインすると操作できます</div>
+        </div>`;
+      return;
+    }
+    container.innerHTML = `
+      <div class="purchase-form">
+        <h3>🎫 5回券 購入記録</h3>
+        <div class="form-group">
+          <label>購入者の種類</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="btn-type-new"    onclick="setBuyType('new')">🆕 新規メンバー</button>
+            <button class="toggle-btn"        id="btn-type-return" onclick="setBuyType('return')">🔄 既存メンバー</button>
+          </div>
+        </div>
+        <div id="buy-new-area">
+          <div class="form-group">
+            <label>購入者名（新規）</label>
+            <input type="text" id="buy-name-new" placeholder="氏名を入力（例：田中太郎）" />
+          </div>
+        </div>
+        <div id="buy-return-area" style="display:none">
+          <div class="form-group">
+            <label>メンバーを選択（追加購入・再登録）</label>
+            <select id="buy-name-return">
+              <option value="">-- メンバーを選択してください --</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>購入日</label>
+          <input type="date" id="buy-date" value="${todayISO()}" />
+        </div>
+        <div class="form-group">
+          <label>金額</label>
+          <div class="price-display">¥3,980</div>
+        </div>
+        <button class="btn-purchase" onclick="addPurchase()">✅ 購入を記録する</button>
+      </div>
+      <div class="history-header">
+        <h3>📜 購入履歴</h3>
+        <span class="history-count" id="history-count">0件</span>
+      </div>
+      <div id="purchase-list"></div>`;
+    renderPurchases();
+  }
+
+  // ======================================================
+  // 5回券参加を記録
+  // ======================================================
+  function recordAttend(id) {
+    if (!isAdmin) return;
+    const members = loadMembers();
+    const m = members.find(x => x.id === id);
+    if (!m || !m.hasTicket5) return;
+    if (m.tickets.every(t => t !== null)) {
+      showToast('5回すべて参加済みです', 'error'); return;
+    }
+    const usedCount = m.tickets.filter(t => t !== null).length;
+    const ticketNo  = usedCount + 1;
+    const today     = todayStr();
+    m.tickets[usedCount] = today;
+    m.history.push({ date: today, type: 'ticket5', ticketNo });
+
+    if (m.tickets.every(t => t !== null)) {
+      if (m.nextTicketPurchased) {
+        const archive = loadArchive();
+        archive.unshift({ id:'A'+Date.now(), memberId:m.id, name:m.name, completedAt: today });
+        saveArchive(archive);
+        m.tickets              = [null,null,null,null,null];
+        m.nextTicketPurchased  = false;
+        saveMembers(members);
+        renderMembers(); updateArchiveBadge();
+        showToast(`🏆 ${m.name} さん5回完了！次の5回券に自動切り替えしました 🎫`, 'gold');
+      } else {
+        saveMembers(members);
+        renderMembers();
+        showToast(`🏆 ${m.name} さんが5回達成！「完了者一覧へ移動」ボタンを押してください`, 'gold');
+      }
+    } else {
+      saveMembers(members);
+      renderMembers();
+      showToast(`${m.name} さんの参加を記録しました！ ✊`);
+    }
+    saveToGAS();
+  }
+
+  function undoComplete(id) {
+    if (!isAdmin) return;
+    const members = loadMembers();
+    const m = members.find(x => x.id === id);
+    if (!m) return;
+    for (let i = m.tickets.length - 1; i >= 0; i--) {
+      if (m.tickets[i] !== null) {
+        m.tickets[i] = null;
+        removeLastTicket5(m);
+        saveMembers(members);
+        renderMembers();
+        showToast(`${m.name} さんの5回目の参加を取り消しました`);
+        return;
+      }
+    }
+  }
+
+  function undoAttend(id) {
+    if (!isAdmin) return;
+    const members = loadMembers();
+    const m = members.find(x => x.id === id);
+    if (!m) return;
+    for (let i = m.tickets.length - 1; i >= 0; i--) {
+      if (m.tickets[i] !== null) {
+        m.tickets[i] = null;
+        removeLastTicket5(m);
+        saveMembers(members);
+        renderMembers();
+        showToast(`${m.name} さんの直前の参加を取り消しました`);
+        saveToGAS();
+        return;
+      }
+    }
+  }
+
+  function removeLastTicket5(m) {
+    for (let i = m.history.length - 1; i >= 0; i--) {
+      const e = m.history[i];
+      if (typeof e === 'string' || (e && e.type === 'ticket5')) {
+        m.history.splice(i, 1); return;
+      }
+    }
+  }
+
+  function moveToArchive(id) {
+    if (!isAdmin) return;
+    const members = loadMembers();
+    const m = members.find(x => x.id === id);
+    if (!m || !m.tickets.every(t => t !== null)) return;
+
+    const archive = loadArchive();
+    archive.unshift({ id:'A'+Date.now(), memberId:m.id, name:m.name, completedAt:m.tickets[4] });
+    saveArchive(archive);
+
+    m.status              = 'completed';
+    m.hasTicket5          = false;
+    m.nextTicketPurchased = false;
+    m.tickets             = [null,null,null,null,null];
+    saveMembers(members);
+
+    renderMembers(); renderArchive(); updateArchiveBadge();
+    showToast(`${m.name} さんを完了者一覧に移動しました 🏆`, 'gold');
+    saveToGAS();
+
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-archive').classList.add('active');
+    document.getElementById('tab-archive').classList.add('active');
+  }
+
+  // ======================================================
+  // 購入タイプ切替
+  // ======================================================
+  let buyType = 'new';
+
+  function setBuyType(type) {
+    buyType = type;
+    const btnNew    = document.getElementById('btn-type-new');
+    const btnReturn = document.getElementById('btn-type-return');
+    const newArea    = document.getElementById('buy-new-area');
+    const returnArea = document.getElementById('buy-return-area');
+    if (!btnNew) return;
+    btnNew.classList.toggle('active',    type === 'new');
+    btnReturn.classList.toggle('active', type === 'return');
+    newArea.style.display    = type === 'new'    ? '' : 'none';
+    returnArea.style.display = type === 'return' ? '' : 'none';
+    if (type === 'return') {
+      const sel     = document.getElementById('buy-name-return');
+      const members = loadMembers();
+      const favs    = loadFavorites();
+      const eligible = members.filter(m => isFav(m, favs));
+      eligible.sort((a, b) => {
+        if (a.status === b.status) return 0;
+        return a.status === 'active' ? -1 : 1;
+      });
+      sel.innerHTML = '<option value="">-- メンバーを選択してください --</option>' +
+        eligible.map(m => {
+          const allDone = m.tickets && m.tickets.every(t => t !== null);
+          const tag = m.status === 'completed'              ? '（完了済み）' :
+                      m.hasTicket5 && allDone               ? '（5回達成・処理待ち）' :
+                      m.hasTicket5 && m.nextTicketPurchased ? '（次回券予約済み）' :
+                      m.hasTicket5                          ? '（利用中）' :
+                                                              '（★登録済み）';
+          return `<option value="${m.id}">${getBaseName(m.name)} ${tag}</option>`;
+        }).join('');
+    }
+  }
+
+  function addPurchase() {
+    if (!isAdmin) return;
+    const dateEl = document.getElementById('buy-date');
+    if (!dateEl) return;
+    const date = dateEl.value;
+    if (!date) { showToast('購入日を選択してください', 'error'); return; }
+    const members = loadMembers();
+
+    if (buyType === 'new') {
+      const name = document.getElementById('buy-name-new').value.trim();
+      if (!name) { showToast('購入者名を入力してください', 'error'); return; }
+      if (members.find(m => m.name === name && m.status === 'active')) {
+        showToast('同じ名前のアクティブなメンバーがすでにいます', 'error'); return;
+      }
+      const newId = 'M' + Date.now();
+      members.push({ id:newId, name, status:'active', hasTicket5:true,
+                     nextTicketPurchased:false, tickets:[null,null,null,null,null], history:[],
+                     attendDates:[] });
+      saveMembers(members);
+      savePurchaseEntry(newId, name, date);
+      document.getElementById('buy-name-new').value = '';
+    } else {
+      const memberId = document.getElementById('buy-name-return').value;
+      if (!memberId) { showToast('メンバーを選択してください', 'error'); return; }
+      const m = members.find(x => x.id === memberId);
+      if (!m) return;
+
+      if (m.status === 'active') {
+        if (!m.hasTicket5) {
+          m.hasTicket5          = true;
+          m.nextTicketPurchased = false;
+          saveMembers(members);
+          savePurchaseEntry(m.id, m.name, date);
+        } else if (m.nextTicketPurchased) {
+          showToast('すでに次の5回券が予約済みです', 'error'); return;
+        } else {
+          const allDone = m.tickets.every(t => t !== null);
+          if (allDone) {
+            const archive = loadArchive();
+            archive.unshift({ id:'A'+Date.now(), memberId:m.id, name:m.name, completedAt:m.tickets[4] });
+            saveArchive(archive);
+            m.tickets             = [null,null,null,null,null];
+            m.nextTicketPurchased = false;
+            updateArchiveBadge();
+          } else {
+            m.nextTicketPurchased = true;
+          }
+          saveMembers(members);
+          savePurchaseEntry(m.id, m.name, date);
+        }
+      } else {
+        m.status              = 'active';
+        m.hasTicket5          = true;
+        m.nextTicketPurchased = false;
+        m.tickets             = [null,null,null,null,null];
+        saveMembers(members);
+        savePurchaseEntry(m.id, m.name, date);
+      }
+      setBuyType('return');
+    }
+
+    renderMembers(); renderPurchasePage(); updateArchiveBadge();
+    showToast('5回券の購入を記録しました 🎫', 'gold');
+    saveToGAS();
+  }
+
+  function savePurchaseEntry(memberId, name, date) {
+    const purchases = loadPurchases();
+    purchases.unshift({ id:'P'+Date.now(), memberId, name, date, price:3980 });
+    savePurchases(purchases);
+  }
+
+  function deleteMember(id) {
+    if (!isAdmin) return;
+    const members = loadMembers();
+    const m = members.find(x => x.id === id);
+    if (!m) return;
+    if (!confirm(`「${m.name}」さんを完全に削除しますか？\nこの操作は取り消せません。`)) return;
+    if (!confirm(`最終確認：「${m.name}」さんのデータを完全に削除します。\n本当によろしいですか？`)) return;
+    saveMembers(members.filter(x => x.id !== id));
+    savePurchases(loadPurchases().filter(p => p.memberId !== id && p.name !== m.name));
+    saveArchive(loadArchive().filter(a => a.memberId !== id && a.name !== m.name));
+    renderMembers(); renderPurchasePage(); renderArchive(); updateArchiveBadge();
+    showToast(`${m.name} さんを削除しました`);
+    saveToGAS();
+  }
+
+  function deletePurchase(id) {
+    if (!isAdmin) return;
+    savePurchases(loadPurchases().filter(p => p.id !== id));
+    renderPurchasePage();
+    showToast('購入履歴を削除しました');
+    saveToGAS();
+  }
+
+  function renderPurchases() {
+    const purchases = loadPurchases();
+    const members   = loadMembers();
+    const archive   = loadArchive();
+    const countEl   = document.getElementById('history-count');
+    const container = document.getElementById('purchase-list');
+    if (!countEl || !container) return;
+    countEl.textContent = `${purchases.length}件`;
+    if (purchases.length === 0) {
+      container.innerHTML = '<div class="empty-msg">購入履歴がまだありません</div>'; return;
+    }
+    container.innerHTML = purchases.map(p => {
+      const { badge, isReserved } = getPurchaseStateBadge(p, members, archive, purchases);
+      const pm       = members.find(x => x.id === p.memberId || x.name === p.name);
+      const baseName = getBaseName(p.name);
+      const total    = getMemberTotal(pm);
+      const dispName = `${baseName}・通算${total}回`;
+      return `
+        <div class="history-item">
+          <div>
+            <div class="hi-name">🎫 ${dispName}</div>
+            <div class="hi-date">${p.date}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${badge}
+            ${isReserved
+              ? `<button class="btn-cancel-prepurchase" onclick="cancelPrePurchaseById('${p.id}')">キャンセル</button>`
+              : ''}
+            <button class="btn-del" onclick="deletePurchase('${p.id}')">削除</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function getPurchaseStateBadge(purchase, members, archive, allPurchases) {
+    const m = members.find(x => x.id === purchase.memberId || x.name === purchase.name);
+    if (!m || m.status === 'completed') {
+      return { badge: '<span class="state-badge state-used">使用済み</span>', isReserved: false };
+    }
+    const memberPurchases = allPurchases
+      .filter(p => p.memberId === m.id || p.name === m.name)
+      .reverse();
+    const archiveCount = archive.filter(a => a.memberId === m.id || a.name === m.name).length;
+    const idx = memberPurchases.findIndex(p => p.id === purchase.id);
+    if (idx < archiveCount) {
+      return { badge: '<span class="state-badge state-used">使用済み</span>', isReserved: false };
+    }
+    if (idx === archiveCount) {
+      return { badge: '<span class="state-badge state-active">利用中</span>', isReserved: false };
+    }
+    return { badge: '<span class="state-badge state-reserved">予約済み</span>', isReserved: true };
+  }
+
+  function cancelPrePurchaseById(purchaseId) {
+    if (!isAdmin) return;
+    const purchases = loadPurchases();
+    const p = purchases.find(x => x.id === purchaseId);
+    if (!p) return;
+    const members = loadMembers();
+    const m = members.find(x => x.id === p.memberId || x.name === p.name);
+    if (!m || !m.nextTicketPurchased) return;
+    if (!confirm(`「${m.name}」さんの予約済み5回券をキャンセルしますか？\n購入記録も削除されます。`)) return;
+    m.nextTicketPurchased = false;
+    saveMembers(members);
+    savePurchases(purchases.filter(x => x.id !== purchaseId));
+    renderPurchasePage();
+    renderMembers();
+    showToast(`${m.name} さんの予約をキャンセルしました`);
+  }
+
+  // ======================================================
+  // 完了者一覧
+  // ======================================================
+  function renderArchive() {
+    const members   = loadMembers();
+    const purchases = loadPurchases();
+    const completed = members.filter(m => m.status === 'completed');
+
+    document.getElementById('archive-count').textContent = `${completed.length}件`;
+    const container = document.getElementById('archive-list');
+    if (completed.length === 0) {
+      container.innerHTML = '<div class="empty-msg">まだ5回参加完了者はいません</div>'; return;
+    }
+
+    const archive = loadArchive();
+    container.innerHTML = completed.map(m => {
+      const ticketCount = purchases.filter(p =>
+        p.memberId === m.id || p.name === m.name
+      ).length;
+      const completionCount = archive.filter(a =>
+        a.memberId === m.id || a.name === m.name
+      ).length;
+      const lastEntry = archive.find(a => a.memberId === m.id || a.name === m.name);
+      const lastDate  = lastEntry ? lastEntry.completedAt : '—';
+
+      return `
+        <div class="archive-card">
+          <div class="archive-row">
+            <div class="archive-name">${getBaseName(m.name)}</div>
+            ${isAdmin ? `<button class="btn-delete-member" onclick="deleteMember('${m.id}')">🗑️ 削除</button>` : ''}
+          </div>
+          <div class="archive-meta">
+            <div class="archive-chip">🏅 <strong>${completionCount}</strong> 回完了</div>
+            <div class="archive-chip">🎫 5回券 <strong>${ticketCount}</strong> 回購入</div>
+            <div class="archive-chip date-chip">✅ 最終完了日：<strong>${lastDate}</strong></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function updateArchiveBadge() {
+    const count = loadMembers().filter(m => m.status === 'completed').length;
+    const tab   = document.getElementById('tab-archive');
+    const ex    = tab.querySelector('.tab-badge');
+    if (ex) ex.remove();
+    tab.innerHTML = count > 0
+      ? `🏆<br>完了者一覧<span class="tab-badge">${count}</span>`
+      : `🏆<br>完了者一覧`;
+  }
+
+  // ======================================================
+  // 個人履歴
+  // ======================================================
+  let selectedMemberId = null;
+  let editingMemberId  = null;
+  let editingLegacyId  = null;
+
+  function renderHistoryMemberBtns() {
+    const members   = loadMembers();
+    const favs      = loadFavorites();
+    const container = document.getElementById('history-member-btns');
+    if (members.length === 0) {
+      container.innerHTML = '<span style="color:#556;font-size:0.85rem;">メンバーがいません</span>'; return;
+    }
+
+    const sorted = [...members].sort((a, b) => {
+      if (a.isHost) return -1;
+      if (b.isHost) return  1;
+      const diff = getMemberTotal(b) - getMemberTotal(a);
+      if (diff !== 0) return diff;
+      return a.name.localeCompare(b.name, 'ja');
+    });
+    const favMembers   = sorted.filter(m => isFav(m, favs));
+    const otherMembers = sorted.filter(m => !isFav(m, favs));
+
+    function memberRowHTML(m) {
+      if (editingMemberId === m.id && isAdmin) {
+        const safe = m.name.replace(/"/g, '&quot;');
+        return `<div class="member-edit-row">
+          <input type="text" class="edit-name-input" value="${safe}"
+            onkeydown="if(event.key==='Enter')saveEditMember('${m.id}');if(event.key==='Escape')cancelEditMember();" />
+          <button class="btn-edit-save"   onclick="saveEditMember('${m.id}')">保存</button>
+          <button class="btn-edit-cancel" onclick="cancelEditMember()">キャンセル</button>
+        </div>`;
+      }
+      const done      = m.status === 'completed';
+      const isAutoFav = m.status === 'active' && m.hasTicket5;
+      const starred   = isFav(m, favs);
+      const btnCls    = `btn-member-select${selectedMemberId===m.id?' active':''}${done?' completed-member':''}`;
+      const starCls   = isAutoFav ? 'btn-star fav-auto' : (starred ? 'btn-star fav-on' : 'btn-star fav-off');
+      const starChar  = starred ? '★' : '☆';
+      const starEvt   = isAutoFav ? '' : `onclick="toggleFavorite('${m.id}')"`;
+      const starTitle = isAutoFav ? '参加中（自動★）' : (starred ? 'お気に入り解除' : 'お気に入りに追加');
+      const total      = getMemberTotal(m);
+
+      let statsArea;
+      if (editingLegacyId === m.id && isAdmin) {
+        statsArea = `<div class="legacy-edit-row">
+          <span class="member-stats">通算</span>
+          <input type="number" class="legacy-edit-input" value="${total}" min="0"
+            onkeydown="if(event.key==='Enter')saveLegacyCount('${m.id}');if(event.key==='Escape')cancelLegacyEdit();" />
+          <span class="member-stats">回</span>
+          <button class="btn-edit-save" onclick="saveLegacyCount('${m.id}')">保存</button>
+          <button class="btn-edit-cancel" onclick="cancelLegacyEdit()">キャンセル</button>
+        </div>`;
+      } else {
+        statsArea = `<div class="member-stats-row">
+          <span class="member-stats">通算${total}回</span>
+          ${isAdmin ? `<button class="btn-edit-count" onclick="startLegacyEdit('${m.id}')" title="参加回数を編集">✏️</button>` : ''}
+        </div>`;
+      }
+
+      return `<div class="member-btn-row">
+        <button class="${starCls}" ${starEvt} title="${starTitle}">${starChar}</button>
+        <div class="member-btn-col">
+          <button class="${btnCls}" onclick="selectHistoryMember('${m.id}')">${done?'🏆':'🥊'} ${getBaseName(m.name)}</button>
+          ${statsArea}
+        </div>
+        ${isAdmin ? `<button class="btn-edit" onclick="startEditMember('${m.id}')" title="名前を編集">✏️</button>` : ''}
+        ${isAdmin ? `<button class="btn-delete-member" onclick="deleteMember('${m.id}')" title="削除">🗑️</button>` : ''}
+      </div>`;
+    }
+
+    let html = '';
+    if (favMembers.length > 0) {
+      html += '<div class="history-group-label">🏅 参加回数ランキング</div>';
+      html += favMembers.map(memberRowHTML).join('');
+    }
+    if (otherMembers.length > 0) {
+      html += `<div class="history-group-label" style="margin-top:${favMembers.length?'14px':'10px'}">その他のメンバー</div>`;
+      html += otherMembers.map(memberRowHTML).join('');
+    }
+    container.innerHTML = html;
+
+    if (editingMemberId) {
+      const inp = container.querySelector('.edit-name-input');
+      if (inp) { inp.focus(); inp.select(); }
+    }
+  }
+
+  function selectHistoryMember(id) {
+    selectedMemberId = id;
+    renderHistoryMemberBtns();
+    renderHistoryDetail(id);
+  }
+
+  function startEditMember(id) {
+    if (!isAdmin) return;
+    editingLegacyId = null;
+    editingMemberId = id;
+    renderHistoryMemberBtns();
+  }
+
+  function saveEditMember(id) {
+    if (!isAdmin) return;
+    const inp = document.querySelector('.edit-name-input');
+    if (!inp) return;
+    const newName = inp.value.trim();
+    if (!newName) { showToast('名前を入力してください', 'error'); inp.focus(); return; }
+    const members = loadMembers();
+    const m = members.find(x => x.id === id);
+    if (!m) return;
+    m.name = newName;
+    saveMembers(members);
+    const purchases = loadPurchases();
+    purchases.forEach(p => { if (p.memberId === id) p.name = newName; });
+    savePurchases(purchases);
+    const archive = loadArchive();
+    archive.forEach(a => { if (a.memberId === id) a.name = newName; });
+    saveArchive(archive);
+    editingMemberId = null;
+    renderHistoryMemberBtns();
+    if (selectedMemberId === id) renderHistoryDetail(id);
+    renderMembers();
+    renderArchive();
+    showToast(`名前を「${newName}」に変更しました`);
+    saveToGAS();
+  }
+
+  function cancelEditMember() { editingMemberId = null; renderHistoryMemberBtns(); }
+
+  function startLegacyEdit(id) {
+    if (!isAdmin) return;
+    editingMemberId = null;
+    editingLegacyId = id;
+    renderHistoryMemberBtns();
+    setTimeout(() => {
+      const inp = document.querySelector('.legacy-edit-input');
+      if (inp) { inp.focus(); inp.select(); }
+    }, 40);
+  }
+
+  function saveLegacyCount(id) {
+    if (!isAdmin) return;
+    const inp = document.querySelector('.legacy-edit-input');
+    if (!inp) return;
+    const newTotal = parseInt(inp.value, 10);
+    if (isNaN(newTotal) || newTotal < 0) {
+      showToast('0以上の数字を入力してください', 'error'); inp.focus(); return;
+    }
+    const members = loadMembers();
+    const m = members.find(x => x.id === id);
+    if (!m) return;
+    const newCount = (m.history || []).filter(e =>
+      typeof e === 'string' || (e && (e.type === 'ticket5' || e.type === 'host'))
+    ).length;
+    if (newTotal < newCount) {
+      showToast(`現在の参加記録（${newCount}回）より少ない値は入力できません`, 'error');
+      inp.focus(); return;
+    }
+    const legacyIdx = m.history.findIndex(e => e && e.type === 'legacy');
+    const newLegacy = newTotal - newCount;
+    if (legacyIdx >= 0) {
+      m.history[legacyIdx].count = newLegacy;
+    } else {
+      m.history.unshift({ type:'legacy', count: newLegacy });
+    }
+    saveMembers(members);
+    editingLegacyId = null;
+    renderHistoryMemberBtns();
+    if (selectedMemberId === id) renderHistoryDetail(id);
+    showToast(`通算参加回数を ${newTotal} 回に更新しました`);
+    saveToGAS();
+  }
+
+  function cancelLegacyEdit() { editingLegacyId = null; renderHistoryMemberBtns(); }
+
+  function renderHistoryDetail(id) {
+    const members   = loadMembers();
+    const m         = members.find(x => x.id === id);
+    const container = document.getElementById('history-detail-area');
+    if (!m) { container.innerHTML = ''; return; }
+
+    const statusChip = m.status === 'completed'
+      ? `<span class="status-chip-completed">完了済み</span>` : '';
+
+    const ticket5Entries = (m.history || [])
+      .filter(e => typeof e === 'string' || (e && (e.type === 'ticket5' || (m.isHost && e.type === 'host'))))
+      .reverse();
+    const total = ticket5Entries.length;
+
+    const legacyEntry = (m.history || []).find(e => e && e.type === 'legacy');
+    const legacyCount = legacyEntry ? legacyEntry.count : 0;
+    const totalAll    = total + legacyCount;
+
+    const legacyHTML = legacyEntry
+      ? `<div class="legacy-record">📋 過去参加実績：${legacyCount}回（旧システムより移行）</div>`
+      : '';
+
+    if (total === 0) {
+      container.innerHTML = `
+        <div class="history-detail">
+          <div class="history-detail-header">
+            <div class="history-detail-name">🥊 ${getBaseName(m.name)}${statusChip}</div>
+            <span class="history-total-badge">通算 ${totalAll} 回</span>
+          </div>
+          ${legacyHTML}
+          ${!legacyEntry ? '<div class="empty-msg" style="padding:20px 0;">まだ参加記録がありません</div>' : ''}
+        </div>`; return;
+    }
+
+    const datesHTML = ticket5Entries.map((e, i) => {
+      const date = typeof e === 'string' ? e : e.date;
+      const no   = total - i;
+      return `
+        <div class="history-date-item">
+          <span class="hdi-round">第 ${no} 回目</span>
+          <span class="hdi-sep">／</span>
+          <span class="hdi-date">${date}</span>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="history-detail">
+        <div class="history-detail-header">
+          <div class="history-detail-name">🥊 ${getBaseName(m.name)}${statusChip}</div>
+          <span class="history-total-badge">通算 ${totalAll} 回</span>
+        </div>
+        ${datesHTML}
+        ${legacyHTML}
+      </div>`;
+  }
+
+  function openHistory(id) {
+    selectedMemberId = id;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-history').classList.add('active');
+    document.querySelectorAll('.tab-btn')[4].classList.add('active');
+    renderHistoryMemberBtns();
+    renderHistoryDetail(id);
+  }
+
+  // ======================================================
+  // 主催者（ミヤさん）開催記録
+  // ======================================================
+  function getHostTotal() {
+    const host = loadMembers().find(m => m.isHost);
+    return getMemberTotal(host);
+  }
+
+  function updateHostButton() {
+    const btn = document.getElementById('btn-host-attend');
+    if (btn) btn.innerHTML = `開催<br>${getHostTotal()}回目`;
+    const num = document.getElementById('host-count-num');
+    if (num) num.textContent = getHostTotal();
+  }
+
+  function startHostEdit() {
+    if (!isAdmin) return;
+    const inp = document.getElementById('host-edit-input');
+    if (inp) inp.value = getHostTotal();
+    document.getElementById('host-normal-area').style.display = 'none';
+    document.getElementById('host-edit-area').style.display = 'flex';
+    if (inp) setTimeout(() => { inp.focus(); inp.select(); }, 40);
+  }
+
+  function saveHostCount() {
+    if (!isAdmin) return;
+    const inp = document.getElementById('host-edit-input');
+    const newTotal = parseInt(inp.value, 10);
+    if (isNaN(newTotal) || newTotal < 1) { showToast('1以上の数字を入力してください', 'error'); return; }
+    const members = loadMembers();
+    const host = members.find(m => m.isHost);
+    if (!host) { showToast('主催者データが見つかりません', 'error'); return; }
+    const hostNewCount = (host.history||[]).filter(e =>
+      typeof e === 'string' || (e && (e.type === 'ticket5' || e.type === 'host'))
+    ).length;
+    if (newTotal < hostNewCount) {
+      showToast(`現在の記録回数（${hostNewCount}回）より小さくできません`, 'error'); return;
+    }
+    const newLegacy = newTotal - hostNewCount;
+    const legacyIdx = host.history.findIndex(e => e && e.type === 'legacy');
+    if (legacyIdx >= 0) host.history[legacyIdx].count = newLegacy;
+    else host.history.unshift({ type: 'legacy', count: newLegacy });
+    saveMembers(members);
+    cancelHostEdit();
+    updateHostButton();
+    renderHistoryMemberBtns();
+    if (selectedMemberId === host.id) renderHistoryDetail(host.id);
+    showToast(`開催回数を ${newTotal} 回に更新しました`, 'gold');
+    saveToGAS();
+  }
+
+  function cancelHostEdit() {
+    const na = document.getElementById('host-normal-area');
+    const ea = document.getElementById('host-edit-area');
+    if (na) na.style.display = '';
+    if (ea) ea.style.display = 'none';
+  }
+
+  function recordHostAttend() {
+    if (!isAdmin) return;
+    const members = loadMembers();
+    const host = members.find(m => m.isHost);
+    if (!host) { showToast('主催者データが見つかりません', 'error'); return; }
+    const nextNo = getHostTotal() + 1;
+    if (!confirm(`${nextNo}回目の開催を記録しますか？`)) return;
+    host.history.push({ type:'host', date: todayStr() });
+    saveMembers(members);
+    updateHostButton();
+    if (selectedMemberId === host.id) renderHistoryDetail(host.id);
+    showToast(`開催 ${nextNo}回目 ✅`, 'gold');
+    saveToGAS();
+  }
+
+  // ======================================================
+  // 資金管理（チケット購入の記録・集計）
+  // ======================================================
+  const FIN_TYPES = {
+    ticket5: { label: '5回券',   price: 3980, emoji: '🎫' },
+    ticket1: { label: '1回券',   price: 1200, emoji: '🎟️' },
+    first:   { label: '初回参加', price: 500,  emoji: '🔰' }
+  };
+  let finBuyType = 'ticket1';
+
+  function loadPayments() {
+    const raw = localStorage.getItem('kb_payments');
+    return raw ? JSON.parse(raw) : [];
+  }
+  function savePayments(p) { localStorage.setItem('kb_payments', JSON.stringify(p)); }
+
+  function getAllFinanceEntries() {
+    const purchases = loadPurchases().map(p => ({
+      id: 'PUR_' + p.id, sourceId: p.id, source: 'purchase',
+      type: 'ticket5', name: p.name, memberId: p.memberId,
+      date: p.date, price: (p.price != null ? p.price : FIN_TYPES.ticket5.price)
+    }));
+    const payments = loadPayments().map(p => ({
+      id: 'PAY_' + p.id, sourceId: p.id, source: 'payment',
+      type: p.type, name: p.name, memberId: p.memberId || null,
+      date: p.date, price: p.price
+    }));
+    return [...purchases, ...payments].sort((a, b) => {
+      if (a.date === b.date) return 0;
+      return a.date < b.date ? 1 : -1;
+    });
+  }
+
+  function setFinBuyType(type) {
+    finBuyType = type;
+    ['ticket5', 'ticket1', 'first'].forEach(t => {
+      const btn = document.getElementById('fin-type-' + t);
+      if (btn) btn.classList.toggle('active', t === type);
+    });
+    renderFinanceForm();
+  }
+
+  function renderFinanceForm() {
+    const body = document.getElementById('fin-form-body');
+    if (!body) return;
+    if (finBuyType === 'ticket5') {
+      body.innerHTML = `
+        <div style="background:#0f3460;border:1px dashed #3a5070;border-radius:10px;padding:14px;margin-bottom:4px;font-size:0.85rem;color:#7ab;text-align:center;">
+          5回券の購入登録は「🎫 チケット確認」タブから行ってください。<br>ここでの購入記録には、チケット確認タブで登録した5回券の履歴も自動的に含まれます。
+          <div style="margin-top:10px;">
+            <button class="btn-host" onclick="switchTab('purchase', document.querySelectorAll('.tab-btn')[1])">チケット確認タブへ →</button>
+          </div>
+        </div>`;
+      return;
+    }
+    const info = FIN_TYPES[finBuyType];
+    body.innerHTML = `
+      <div class="form-group">
+        <label>購入者名</label>
+        <input type="text" id="fin-name" placeholder="氏名を入力（例：田中太郎）" />
+      </div>
+      <div class="form-group">
+        <label>購入日</label>
+        <input type="date" id="fin-date" value="${todayISO()}" />
+      </div>
+      <div class="form-group">
+        <label>金額</label>
+        <div class="price-display">¥${info.price.toLocaleString()}</div>
+      </div>
+      <button class="btn-purchase" onclick="addFinancePayment()">✅ 購入を記録する</button>`;
+  }
+
+  function addFinancePayment() {
+    if (!isAdmin) return;
+    if (finBuyType === 'ticket5') { showToast('5回券は「チケット確認」タブから登録してください', 'error'); return; }
+    const nameEl = document.getElementById('fin-name');
+    const dateEl = document.getElementById('fin-date');
+    const name = nameEl ? nameEl.value.trim() : '';
+    const date = dateEl ? dateEl.value : '';
+    if (!name) { showToast('購入者名を入力してください', 'error'); nameEl && nameEl.focus(); return; }
+    if (!date) { showToast('購入日を選択してください', 'error'); return; }
+    const payments = loadPayments();
+    payments.unshift({ id: 'PAY' + Date.now(), type: finBuyType, name, date, price: FIN_TYPES[finBuyType].price });
+    savePayments(payments);
+    renderFinancePage();
+    showToast(`${FIN_TYPES[finBuyType].label}の購入を記録しました 💰`, 'gold');
+    saveToGAS();
+  }
+
+  function deleteFinancePayment(id) {
+    if (!isAdmin) return;
+    savePayments(loadPayments().filter(p => p.id !== id));
+    renderFinancePage();
+    showToast('記録を削除しました');
+    saveToGAS();
+  }
+
+  function renderFinanceSummary(entries) {
+    const byMonth = {};
+    entries.forEach(e => {
+      const ym = (e.date || '').slice(0, 7) || '不明';
+      if (!byMonth[ym]) byMonth[ym] = { total: 0, count: 0, byType: {} };
+      byMonth[ym].total += e.price;
+      byMonth[ym].count += 1;
+      byMonth[ym].byType[e.type] = (byMonth[ym].byType[e.type] || 0) + 1;
+    });
+    const months = Object.keys(byMonth).sort().reverse();
+    if (months.length === 0) return '<div class="empty-msg">まだ記録がありません</div>';
+    return months.map(ym => {
+      const d = byMonth[ym];
+      const typeBreak = Object.entries(d.byType)
+        .map(([t, c]) => `${FIN_TYPES[t] ? FIN_TYPES[t].emoji + FIN_TYPES[t].label : t}×${c}`)
+        .join(' ／ ');
+      return `<div class="history-item">
+        <div>
+          <div class="hi-name">📅 ${ym}</div>
+          <div class="hi-date">${typeBreak}</div>
+        </div>
+        <div class="hi-price">¥${d.total.toLocaleString()}（${d.count}件）</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderFinanceHistory(entries) {
+    if (entries.length === 0) return '<div class="empty-msg">まだ購入記録がありません</div>';
+    return entries.map(e => {
+      const info = FIN_TYPES[e.type] || { label: e.type, emoji: '💰' };
+      const delFn = e.source === 'purchase' ? `deletePurchase('${e.sourceId}')` : `deleteFinancePayment('${e.sourceId}')`;
+      return `<div class="history-item">
+        <div>
+          <div class="hi-name">${info.emoji} ${getBaseName(e.name)}（${info.label}）</div>
+          <div class="hi-date">${e.date}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="hi-price">¥${e.price.toLocaleString()}</span>
+          <button class="btn-del" onclick="${delFn}">削除</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderFinancePage() {
+    const container = document.getElementById('finance-page-content');
+    if (!container) return;
+    if (!isAdmin) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:50px 20px;">
+          <div style="font-size:2.5rem;margin-bottom:16px;">🔐</div>
+          <div style="font-size:1rem;color:#aaa;margin-bottom:8px;font-weight:bold;">管理者専用ページ</div>
+          <div style="font-size:0.85rem;color:#556;">右上の「管理者ログイン」からログインすると操作できます</div>
+        </div>`;
+      return;
+    }
+    const entries = getAllFinanceEntries();
+    const total = entries.reduce((s, e) => s + e.price, 0);
+    container.innerHTML = `
+      <div class="purchase-form">
+        <h3>💰 チケット購入 記録</h3>
+        <div class="form-group">
+          <label>種別</label>
+          <div class="toggle-group triple">
+            <button class="toggle-btn" id="fin-type-ticket5" onclick="setFinBuyType('ticket5')">🎫 5回券<br>¥3,980</button>
+            <button class="toggle-btn active" id="fin-type-ticket1" onclick="setFinBuyType('ticket1')">🎟️ 1回券<br>¥1,200</button>
+            <button class="toggle-btn" id="fin-type-first" onclick="setFinBuyType('first')">🔰 初回参加<br>¥500</button>
+          </div>
+        </div>
+        <div id="fin-form-body"></div>
+      </div>
+      <div class="history-header">
+        <h3>📊 月ごとの集計</h3>
+        <span class="history-count">総額 ¥${total.toLocaleString()}</span>
+      </div>
+      <div id="finance-summary">${renderFinanceSummary(entries)}</div>
+      <div class="history-header" style="margin-top:18px;">
+        <h3>📜 購入履歴（全種別）</h3>
+        <span class="history-count">${entries.length}件</span>
+      </div>
+      <div id="finance-list">${renderFinanceHistory(entries)}</div>`;
+    renderFinanceForm();
+  }
+
+  // ======================================================
+  // GAS連携
+  // ======================================================
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzVhgDsPIctq3OQ3d6dVlrhwiHLo1xVGDcquwW7QlQk9StJu1ZZVp7rwvgvIyn_JYcv/exec';
+  let syncBarTimer = null;
+
+  function showSyncBar(msg, type) {
+    const bar = document.getElementById('sync-bar');
+    bar.textContent = msg;
+    bar.className = 'sync-bar show ' + type;
+    bar.style.display = 'block';
+    if (syncBarTimer) clearTimeout(syncBarTimer);
+    if (type !== 'loading') {
+      syncBarTimer = setTimeout(() => {
+        bar.classList.remove('show');
+        bar.style.display = 'none';
+      }, 3000);
+    }
+  }
+  function hideSyncBar() {
+    if (syncBarTimer) clearTimeout(syncBarTimer);
+    const bar = document.getElementById('sync-bar');
+    bar.classList.remove('show');
+    bar.style.display = 'none';
+  }
+
+  async function saveToGAS() {
+    showSyncBar('💾 保存中...', 'loading');
+    try {
+      const payload = JSON.stringify({
+        action:    'save',
+        version:   DATA_VERSION,
+        members:   JSON.parse(localStorage.getItem('kb_members')   || '[]'),
+        purchases: JSON.parse(localStorage.getItem('kb_purchases') || '[]'),
+        archive:   JSON.parse(localStorage.getItem('kb_archive')   || '[]'),
+        favorites: JSON.parse(localStorage.getItem('kb_favorites') || '[]'),
+        payments:  JSON.parse(localStorage.getItem('kb_payments')  || '[]')
+      });
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: payload,
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      const result = await res.json();
+      if (result && result.status === 'ok') {
+        showSyncBar('✅ 保存しました！', 'success');
+      } else {
+        throw new Error('GAS returned error');
+      }
+    } catch (e) {
+      showSyncBar('❌ 保存失敗・ローカルに保存', 'error');
+    }
+  }
+
+  async function loadFromGAS() {
+    showSyncBar('📡 データを読み込み中...', 'loading');
+    try {
+      const res = await fetch(GAS_URL + '?action=load', { method: 'GET' });
+      const data = await res.json();
+      if (data && data.version === DATA_VERSION && data.members && data.members.length > 0) {
+        localStorage.setItem('kb_members',      JSON.stringify(data.members));
+        localStorage.setItem('kb_purchases',    JSON.stringify(data.purchases   || []));
+        localStorage.setItem('kb_archive',      JSON.stringify(data.archive     || []));
+        localStorage.setItem('kb_favorites',    JSON.stringify(data.favorites   || []));
+        localStorage.setItem('kb_payments',     JSON.stringify(data.payments    || []));
+        localStorage.setItem('kb_data_version', DATA_VERSION);
+        hideSyncBar();
+        return true;
+      }
+      hideSyncBar();
+      return false;
+    } catch (e) {
+      hideSyncBar();
+      return false;
+    }
+  }
+
+  // ======================================================
+  // タブ切替
+  // ======================================================
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + tab).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (tab === 'history')  { renderHistoryMemberBtns(); if (selectedMemberId) renderHistoryDetail(selectedMemberId); }
+    if (tab === 'purchase') { renderPurchasePage(); }
+    if (tab === 'finance')  { renderFinancePage(); }
+    if (tab === 'attend')   { renderBulkAttendPanel(); if (attendView === 'grid') renderAttendGrid(); }
+  }
+
+  // ======================================================
+  // 初期化
+  // ======================================================
+  (async () => {
+    await loadFromGAS();
+    renderMembers();
+    renderPurchasePage();
+    renderFinancePage();
+    renderBulkAttendPanel();
+    renderArchive();
+    updateArchiveBadge();
+    renderHistoryMemberBtns();
+    const numEl = document.getElementById('host-count-num');
+    if (numEl) numEl.textContent = getHostTotal();
+  })();
+</script>
+</body>
+</html>

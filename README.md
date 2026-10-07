@@ -10,7 +10,8 @@
 - テスト: `npm.cmd test`
 - **画面のCSSを直したら `npm.cmd run build`**（`v2/style.css` を各HTMLの `<style id="app-css">` に埋め込む。外部CSSは拡張機能にブロックされたりキャッシュがズレると色が出ないため）
 - 仕様: `docs/spec-v2-line-checkin-2026-09-14.md`（v2.2）／計画: `docs/superpowers/plans/2026-09-17-kickboxing-v2-mvp1.md`
-- 旧アプリ `index.html` は移行完了まで並走
+- 入口 `index.html`（https://asahiya-ai.com/kickboxing-app/）は v2 の会員画面へ転送する（2026-10-07〜）
+- 旧アプリ（見るだけ）は `v1.html`（https://asahiya-ai.com/kickboxing-app/v1.html）。10月中に停止予定
 
 ### 運用メモ
 - **登録に承認は無い**（2026-09-19〜）。登録した瞬間から出席できる
