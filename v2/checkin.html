@@ -97,6 +97,10 @@ body.unpaid .unpaid-banner { background: #fff; color: var(--main); border: 3px s
 .card.action { background: var(--yellow); border-color: var(--yellow); padding: 14px; }
 .card.action .btn { box-shadow: 0 4px 0 #a52a21; }
 .card.action #doneLine { text-align: center; font-weight: 800; color: var(--navy); padding: 12px 0 4px; font-size: 18px; }
+.card.action .confirm-q { text-align: center; font-weight: 800; color: var(--navy); font-size: 18px; line-height: 1.5; margin: 2px 0 10px; }
+.card.action .confirm-btns { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.card.action .confirm-btns .btn { margin-top: 0; padding: 14px 6px; font-size: 18px; }
+.card.action .confirm-btns .btn.sec { box-shadow: none; }
 .stat-num b { color: var(--main); }
 .cal-day.today { outline-color: var(--navy); }
 h2 { color: var(--navy); }
@@ -178,6 +182,13 @@ details.card summary::before { color: var(--navy); }
   <div id="v-main" class="hidden">
     <div class="card action" id="actionCard">
       <button class="btn" id="btnCheckin">出席する</button>
+      <div id="confirmBox" class="hidden">
+        <p class="confirm-q" id="confirmQ">今日の練習に参加しますか？</p>
+        <div class="confirm-btns">
+          <button class="btn" id="btnYes">はい、出席する</button>
+          <button class="btn sec" id="btnNo">いいえ</button>
+        </div>
+      </div>
       <div id="choices" class="hidden"></div>
       <div id="doneLine" class="hidden"></div>
     </div>
@@ -238,6 +249,7 @@ details.card summary::before { color: var(--navy); }
 <script src="api.js?v=20260921b"></script>
 <script>
 const $ = (id) => document.getElementById(id);
+let todayInfo = null; // 今日の練習（出席の確認文に使う）
 
 function show(id) { ['loading', 'v-login', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
@@ -353,6 +365,8 @@ function render(r) {
     $('todayNames').innerHTML = r.today.names.map(n => '<li>' + esc(n) + '</li>').join('');
     $('actionCard').classList.remove('hidden');
     $('todayCard').classList.remove('hidden');
+    todayInfo = r.today;
+    $('confirmBox').classList.add('hidden');
     $('btnCheckin').classList.toggle('hidden', r.attendedToday);
     $('doneLine').classList.toggle('hidden', !r.attendedToday);
     $('doneLine').textContent = '本日は受付済みです';
@@ -420,7 +434,21 @@ $('btnRegister').onclick = async () => {
   KickApi.setToken(r.token); msg(r.message, false); await load();
 };
 $('btnReload1').onclick = load;
-$('btnCheckin').onclick = () => checkin(null);
+// 出席は「出席する」→「はい、出席する」の2回押しで記録する（間違って押しても記録されないように）
+let doCheckin = () => checkin(null);
+function askCheckin() {
+  const t = todayInfo;
+  $('confirmQ').textContent = (t ? '今日（第' + t.通算番号 + '回・' + t.時間帯 + '）の' : '今日の') + '練習に参加しますか？';
+  $('btnCheckin').classList.add('hidden');
+  $('confirmBox').classList.remove('hidden');
+}
+function cancelCheckin() {
+  $('confirmBox').classList.add('hidden');
+  $('btnCheckin').classList.remove('hidden');
+}
+$('btnCheckin').onclick = askCheckin;
+$('btnNo').onclick = cancelCheckin;
+$('btnYes').onclick = () => { cancelCheckin(); doCheckin(); };
 $('btnRename').onclick = async () => {
   const r = await KickApi.call('rename', { name: $('newName').value });
   msg(r.ok ? '表示名を変更しました' : r.message, !r.ok); if (r.ok) { $('newName').value = ''; await load(); }
@@ -456,7 +484,7 @@ if (demoMode === '1' || demoMode === '2' || demoMode === '3') {
   });
   if (dayOf) {
     msg('デモ表示です（練習日当日・まだ押していない状態）。「出席する」を押しても記録されません', false);
-    $('btnCheckin').onclick = () => { msg('受付しました。残り 1 回。次の券をご用意ください。（デモ）', false); $('btnCheckin').classList.add('hidden'); $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです'; $('todayCount').textContent = '4'; $('todayNames').insertAdjacentHTML('beforeend', '<li>デモ太郎</li>'); $('doneLine').insertAdjacentHTML('afterend', '<button class="btn sec sm" id="btnDemoAgain">デモをやり直す（もう一度押せる状態に戻す）</button>'); $('btnDemoAgain').onclick = () => location.reload(); };
+    doCheckin = () => { msg('受付しました。残り 1 回。次の券をご用意ください。（デモ）', false); $('btnCheckin').classList.add('hidden'); $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです'; $('todayCount').textContent = '4'; $('todayNames').insertAdjacentHTML('beforeend', '<li>デモ太郎</li>'); $('doneLine').insertAdjacentHTML('afterend', '<button class="btn sec sm" id="btnDemoAgain">デモをやり直す（もう一度押せる状態に戻す）</button>'); $('btnDemoAgain').onclick = () => location.reload(); };
   } else if (full) {
     $('todayLabel').textContent = '今日は 第100回（昼 10:00〜12:00）';
     $('actionCard').classList.remove('hidden'); $('todayCard').classList.remove('hidden'); $('btnCheckin').classList.add('hidden');

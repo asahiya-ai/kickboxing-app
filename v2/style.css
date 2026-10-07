@@ -88,6 +88,10 @@ body.unpaid .unpaid-banner { background: #fff; color: var(--main); border: 3px s
 .card.action { background: var(--yellow); border-color: var(--yellow); padding: 14px; }
 .card.action .btn { box-shadow: 0 4px 0 #a52a21; }
 .card.action #doneLine { text-align: center; font-weight: 800; color: var(--navy); padding: 12px 0 4px; font-size: 18px; }
+.card.action .confirm-q { text-align: center; font-weight: 800; color: var(--navy); font-size: 18px; line-height: 1.5; margin: 2px 0 10px; }
+.card.action .confirm-btns { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.card.action .confirm-btns .btn { margin-top: 0; padding: 14px 6px; font-size: 18px; }
+.card.action .confirm-btns .btn.sec { box-shadow: none; }
 .stat-num b { color: var(--main); }
 .cal-day.today { outline-color: var(--navy); }
 h2 { color: var(--navy); }
