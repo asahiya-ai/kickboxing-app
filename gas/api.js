@@ -18,7 +18,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-10-07-1' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-10-10-1' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -211,43 +211,69 @@ function actionRename(members, me, body) {
 }
 
 function actionCheckin(me, body) {
+  return recordCheckin(me.会員ID, body.choice || null, null) || { ok: false, message: 'ログインしてください', needLogin: true };
+}
+
+// 今日の出席を記録する（本人のスマホ／管理者の代打ちで共通。判定は decideCheckin）。
+// proxy：null＝本人。{ admin, paid } ＝管理者が代わりに押した（携帯を忘れた人など）。paid＝券代をその場で受け取ったか（false なら未収）
+function recordCheckin(memberId, choice, proxy) {
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     // ロック内で読み直す（二度押し・同時押し対策）
-    var members = Repo.readAll('会員');
-    var fresh = members.filter(function (m) { return m.会員ID === me.会員ID; })[0] || me;
+    var fresh = Repo.readAll('会員').filter(function (m) { return m.会員ID === memberId; })[0];
+    if (!fresh) return null;
+    // 代打ちで休会の人を記録するときは有効に戻す（本人がログインして戻ったときと同じ）
+    var reactivate = !!proxy && fresh.状態 === '休会';
+    var member = reactivate ? Object.assign({}, fresh, { 状態: '有効' }) : fresh;
     var ctx = todayContext();
     var already = ctx.session ? ctx.todays.some(function (a) { return a.会員ID === fresh.会員ID; }) : false;
     var hasPurchase = Repo.readAll('購入').some(function (p) { return p.会員ID === fresh.会員ID; });
     var jimuTaken = ctx.todays.some(function (a) { return a.支払い種別 === '事務長'; });
     var decision = decideCheckin({
-      member: fresh, session: ctx.session, alreadyAttended: already, prices: Repo.prices(), choice: body.choice || null, hasPurchase: hasPurchase, jimuTaken: jimuTaken,
+      member: member, session: ctx.session, alreadyAttended: already, prices: Repo.prices(), choice: choice, hasPurchase: hasPurchase, jimuTaken: jimuTaken,
     });
     if (!decision.ok) return decision;
 
     var nowStr = formatDateTime(ctx.now);
+    var paidNow = !!proxy && proxy.paid === true;
     if (decision.purchase) {
       Repo.append('購入', {
         購入ID: Repo.nextId('購入'), 日時: nowStr, 会員ID: fresh.会員ID, 種別: decision.purchase.種別,
-        付与回数: decision.purchase.付与回数, 金額: decision.purchase.金額, 入金: '未収', 入金日: '', 記録者: fresh.会員ID, 備考: '本人のスマホから',
+        付与回数: decision.purchase.付与回数, 金額: decision.purchase.金額, 入金: paidNow ? '入金済み' : '未収', 入金日: paidNow ? ctx.todayStr : '',
+        記録者: proxy ? proxy.admin.会員ID : fresh.会員ID, 備考: proxy ? '管理画面から（代打ち）' : '本人のスマホから',
       });
     }
     Repo.append('出席', {
       出席ID: Repo.nextId('出席'), 日時: nowStr, 開催ID: ctx.session.開催ID, 会員ID: fresh.会員ID, 表示名: fresh.表示名,
       支払い種別: decision.attendance.支払い種別, 金額: decision.attendance.金額, 消化: decision.attendance.消化,
-      記録方法: '本人QR', 状態: '有効', '取消日時・取消者': '',
+      記録方法: proxy ? '代打ち ' + proxy.admin.会員ID : '本人QR', 状態: '有効', '取消日時・取消者': '',
     });
     var patch = { 残り回数: decision.remainingAfter };
     if (decision.setJoinDate) patch.入会日 = ctx.todayStr;
+    if (reactivate) patch.状態 = '有効';
+    if (proxy) patch.備考 = (fresh.備考 || '') + ' / ' + ctx.todayStr + ' 第' + (ctx.session.通算番号 || '?') + '回 ' + decision.attendance.支払い種別 + '（代打ち'
+      + (decision.purchase ? '・券' + (paidNow ? '入金済み' : '未収') : '') + '） by ' + proxy.admin.会員ID;
     Repo.update('会員', fresh._row, patch);
     Repo.update('開催', ctx.session._row, { 出席人数: ctx.todays.length + 1 });
 
     return { ok: true, remaining: decision.remainingAfter, type: decision.attendance.支払い種別, amount: decision.attendance.金額,
-      unpaid: decision.purchase ? decision.purchase.金額 : 0 };
+      unpaid: decision.purchase && !paidNow ? decision.purchase.金額 : 0, name: fresh.表示名 };
   } finally {
     lock.releaseLock();
   }
+}
+
+// 管理者が「今日の参加」を代わりに押す（携帯を忘れた人など）。body: { 会員ID, choice, paid }
+function adminCheckinFor(body, admin) {
+  var r = recordCheckin(String(body.会員ID || ''), body.choice || null, { admin: admin, paid: body.paid === true });
+  if (!r) return { ok: false, message: '会員が見つかりません' };
+  if (!r.ok) return r;
+  var parts = [r.name + '：今日の参加を記録しました（' + r.type + '）'];
+  if (r.type === '券') parts.push('残り ' + r.remaining + ' 回');
+  if (r.amount > 0) parts.push(r.amount.toLocaleString() + '円を受け取ってください');
+  if (r.unpaid > 0) parts.push('券代 ' + r.unpaid.toLocaleString() + '円は未入金');
+  return { ok: true, message: parts.join('。') };
 }
 
 // ---------- 管理者向け ----------
@@ -273,6 +299,7 @@ function handleAdmin(action, body, admin) {
     case 'admin.setRemaining': return adminSetRemaining(body, admin);
     case 'admin.deleteMember': return adminDeleteMember(body, admin);
     case 'admin.attendance': return adminAttendance(body, admin);
+    case 'admin.checkinFor': return adminCheckinFor(body, admin);
     default: return { ok: false, message: '不明な操作です' };
   }
 }

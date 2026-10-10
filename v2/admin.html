@@ -141,6 +141,10 @@ details.card summary::before { color: var(--navy); }
 .att-btns button { flex: 1 1 45%; padding: 10px 4px; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .att-btns button.free { border-color: var(--navy); color: var(--navy); font-weight: 700; }
 .att-btns button.cancel { flex-basis: 100%; color: #c62828; }
+.today-box { margin: 10px 0 4px; }
+.today-box .btn { margin-top: 0; }
+.today-box.done { padding: 10px; background: #e8f5e9; color: #1b5e20; font-weight: 700; border-radius: 10px; text-align: center; }
+.att-btns button.unpaid { color: #c62828; border-color: #c62828; font-weight: 700; }
 .kubun-box { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; margin-top: 10px; }
 .kubun-box button { padding: 8px 10px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .outside-line { margin: 18px 0 4px; padding: 8px 10px; background: #eceff5; color: var(--muted); font-weight: 700; border-radius: 8px; text-align: center; }
@@ -204,6 +208,7 @@ details.card summary::before { color: var(--navy); }
         <option value="recent">直近2か月の参加率の高い順</option>
         <option value="name">名前順</option>
       </select>
+      <input type="search" id="mFilter" placeholder="名前で探す（例：しん）" autocomplete="off" style="margin-top:8px">
       <p class="sub" id="mCount"></p>
       <div id="memberRows"></div>
       <button class="btn sec sm" id="btnMembersReload">更新</button>
@@ -311,6 +316,55 @@ function attBoxHtml(m) {
     + '</div><div class="sub" style="font-size:12px;margin-top:4px">お金（券の購入・入金）は変わりません。券を買った人は［券を付与］も押してください</div></div>';
 }
 
+// いま開いている回（今日の練習）。無ければ null
+function currentSession() { return membersMeta.sessions.find(s => s.current && s.today) || null; }
+
+// 会員カードの先頭：［今日の参加］（携帯を忘れた人などを管理者が代わりに記録する。判定は本人が押したときと同じ）
+function todayBoxHtml(m) {
+  const cur = currentSession();
+  if (!cur) return '';
+  const done = (m.att || {})[cur.開催ID];
+  if (done) return '<div class="today-box done">今日（第' + esc(cur.通算番号) + '回）は出席済み：' + esc(ATT_LABEL[done] || done) + '</div>';
+  return '<div class="today-box"><button class="btn" data-today="' + esc(m.会員ID) + '">今日の参加を記録（第' + esc(cur.通算番号) + '回）</button>'
+    + '<div data-today-choices="' + esc(m.会員ID) + '"></div></div>';
+}
+
+// 券が無い人などに出す選択肢。券を買う選択肢は「入金済み」と「未入金で参加」の2つに分ける
+function todayChoicesHtml(id, options) {
+  const yen = (v) => Number(v).toLocaleString() + '円';
+  const b = (key, paid, label, cls) => '<button data-today-pick="' + esc(id) + '" data-key="' + esc(key) + '" data-paid="' + (paid ? '1' : '0') + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(label) + '</button>';
+  return '<div class="sub" style="margin:8px 0 4px">券が残っていません。どうしますか？</div><div class="att-btns">' + options.map(o => {
+    if (o.key === 'join' || o.key === 'buy_ticket') {
+      return b(o.key, true, o.label + ' ' + yen(o.amount) + '・入金済み') + b(o.key, false, o.label + '・未入金で参加', 'unpaid');
+    }
+    return b(o.key, true, o.label + ' ' + yen(o.amount) + '（その場で受け取り）');
+  }).join('') + '</div>';
+}
+
+async function checkinFor(id, choice, paid, btn) {
+  const m = membersCache.find(x => x.会員ID === id);
+  if (btn) btn.disabled = true;
+  try {
+    const rr = await KickApi.call('admin.checkinFor', { 会員ID: id, choice: choice || undefined, paid: !!paid });
+    if (rr.needChoice) {
+      $('memberRows').querySelector('[data-today-choices="' + id + '"]').innerHTML = todayChoicesHtml(id, rr.options);
+      bindTodayPicks();
+      return;
+    }
+    msg(rr.message, !rr.ok);
+    if (!rr.ok) return alert(rr.message);
+    await reloadMembersKeepOpen(id);
+  } finally { if (btn) btn.disabled = false; }
+}
+
+function bindTodayPicks() {
+  $('memberRows').querySelectorAll('[data-today-pick]').forEach(b => b.onclick = () => {
+    const m = membersCache.find(x => x.会員ID === b.dataset.todayPick);
+    if (!confirm(m.表示名 + '：今日の参加を「' + b.textContent + '」で記録します。よろしいですか？')) return;
+    checkinFor(b.dataset.todayPick, b.dataset.key, b.dataset.paid === '1', b);
+  });
+}
+
 function kubunBoxHtml(m) {
   const list = membersMeta.kubunList;
   if (!list.length) return '';
@@ -364,6 +418,7 @@ function memberCardHtml(m) {
     + '<div class="mcard-head"><b>' + esc(m.表示名) + '</b>' + (m.locked ? ' 🔒' : '')
     + '<div class="sub" style="font-size:12px">' + esc(m.会員ID) + '・' + esc(m.区分) + '・' + esc(m.状態) + (m.登録 ? '・登録 ' + esc(m.登録) : '') + '</div>'
     + (m.未収 > 0 ? '<div style="color:#c62828;font-size:13px;font-weight:700">🔴 未収 ' + Number(m.未収).toLocaleString() + '円</div>' : '') + '</div>'
+    + todayBoxHtml(m)
     + '<div class="stat-row">'
     + '<div class="stat">' + ticketHtml(m) + '</div>'
     + '<div class="stat"><div class="stat-label">通算参加</div><div class="stat-num">' + esc(m.通算) + '<span class="stat-unit">回</span></div><div class="sub">' + esc(join) + '</div></div>'
@@ -379,8 +434,12 @@ function memberCardHtml(m) {
     + kubunBoxHtml(m) + '</div></details>';
 }
 
+// 名前で探す：ひらがな・カタカナ・全角半角・大文字小文字を区別しない
+function nameKey(s) { return String(s || '').normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)); }
+
 function renderMembers() {
-  const list = sortMembers(membersCache, $('mSort').value);
+  const q = nameKey($('mFilter').value.trim());
+  const list = sortMembers(membersCache.filter(m => !q || nameKey(m.表示名).includes(q)), $('mSort').value);
   const key = $('mSort').value;
   const outCount = key === 'main' ? list.filter(isOutside).length : 0;
   $('mCount').textContent = list.length + '名（退会を除く）' + (key === 'main' ? '・枠外 ' + outCount + '名' : '');
@@ -426,6 +485,11 @@ function renderMembers() {
       const rr = await KickApi.call('admin.deleteMember', { 会員ID: b.dataset.del });
       msg(rr.message, !rr.ok); loadMembers();
     } finally { b.disabled = false; }
+  });
+  $('memberRows').querySelectorAll('[data-today]').forEach(b => b.onclick = () => {
+    const m = membersCache.find(x => x.会員ID === b.dataset.today);
+    if (!confirm(m.表示名 + '：今日の参加を記録します（本人が［出席する］を押したのと同じ扱い）。よろしいですか？')) return;
+    checkinFor(b.dataset.today, null, false, b);
   });
   $('memberRows').querySelectorAll('[data-att-sess]').forEach(sel => sel.onchange = () => {
     const m = membersCache.find(x => x.会員ID === sel.dataset.attSess);
@@ -480,6 +544,7 @@ $('btnPendingReload').onclick = loadPending;
 $('btnSessionsReload').onclick = loadSessions;
 $('btnMembersReload').onclick = loadMembers;
 $('mSort').onchange = renderMembers;
+$('mFilter').oninput = renderMembers;
 $('btnAddSession').onclick = async () => {
   const slot = document.querySelector('input[name=slot]:checked').value;
   const r = await KickApi.call('admin.upsertSession', { 日付: $('sDate').value.trim(), 時間帯: slot, 会場: $('sPlace').value || '武道館', 状態: '予定' });
