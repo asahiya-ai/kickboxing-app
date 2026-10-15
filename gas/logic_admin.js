@@ -117,11 +117,39 @@ function planAdminAttendance(input) {
 // 管理画面で選べる練習の回：中止を除き、今日までの新しい順に n 件
 function recentSessionsForAdmin(sessions, todayStr, n) {
   return sessions.filter(function (s) { return s.状態 !== '中止' && String(s.日付) <= todayStr; })
-    .sort(function (a, b) {
-      if (a.日付 !== b.日付) return a.日付 < b.日付 ? 1 : -1;
-      return (a.時間帯 === '夜' ? 0 : 1) - (b.時間帯 === '夜' ? 0 : 1); // 同じ日なら夜が新しい
-    })
+    .sort(_newestFirst)
     .slice(0, n || 6);
 }
 
-if (typeof module !== 'undefined') module.exports = { validateRemaining, planMemberDeletion, recountSessions, todayUnpaidTotal, planAdminAttendance, recentSessionsForAdmin, ADMIN_ATT_TYPES, DELETE_MAX_ATTENDANCE };
+function _newestFirst(a, b) {
+  if (a.日付 !== b.日付) return a.日付 < b.日付 ? 1 : -1;
+  return (a.時間帯 === '夜' ? 0 : 1) - (b.時間帯 === '夜' ? 0 : 1); // 同じ日なら夜が新しい
+}
+
+// 開催ごとの有効な出席の数。開催タブの「出席人数」列は書き込んだ時点の控えなので、画面にはこちらを出す
+function countAttendanceBySession(attendances) {
+  var out = {};
+  attendances.forEach(function (a) {
+    if (a.状態 === '有効' && a.開催ID) out[a.開催ID] = (out[a.開催ID] || 0) + 1;
+  });
+  return out;
+}
+
+// 「参加者」で選べる回：今日までの回を新しい順に全部。中止の回も、出席の記録が残っていれば出す（消し忘れに気づけるように）
+function attendedSessionOptions(sessions, todayStr, counts) {
+  return sessions.filter(function (s) {
+    return String(s.日付) <= todayStr && (s.状態 !== '中止' || (counts[s.開催ID] || 0) > 0);
+  }).sort(_newestFirst);
+}
+
+// 「参加者」で見る回を1つ決める：指定の回 → 今日いま開いている回 → 今日までのいちばん新しい回。無ければ null
+function pickAdminViewSession(sessions, wantId, todaySession, todayStr) {
+  if (wantId) {
+    var want = sessions.filter(function (s) { return s.開催ID === wantId; })[0];
+    if (want) return want;
+  }
+  if (todaySession) return todaySession;
+  return recentSessionsForAdmin(sessions, todayStr, 1)[0] || null;
+}
+
+if (typeof module !== 'undefined') module.exports = { validateRemaining, planMemberDeletion, recountSessions, todayUnpaidTotal, planAdminAttendance, recentSessionsForAdmin, countAttendanceBySession, attendedSessionOptions, pickAdminViewSession, ADMIN_ATT_TYPES, DELETE_MAX_ATTENDANCE };

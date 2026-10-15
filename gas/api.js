@@ -18,7 +18,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-10-10-1' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-10-15-1' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -280,7 +280,7 @@ function adminCheckinFor(body, admin) {
 
 function handleAdmin(action, body, admin) {
   switch (action) {
-    case 'admin.today': return adminToday();
+    case 'admin.today': return adminToday(body);
     case 'admin.pending': return adminPending();
     case 'admin.approve': return adminApprove(body, admin);
     case 'admin.sessions': return adminSessions(body);
@@ -304,8 +304,14 @@ function handleAdmin(action, body, admin) {
   }
 }
 
-function adminToday() {
+// 「参加者」：選んだ回に出席した人。body.開催ID が無ければ、今日いま開いている回 → 今日までのいちばん新しい回。
+// 日付をまたいでも前の回を見られるように、選べる回（今日までの全部・新しい順）も返す
+function adminToday(body) {
   var ctx = todayContext();
+  var counts = countAttendanceBySession(ctx.attendances);
+  var session = pickAdminViewSession(ctx.sessions, String(body.開催ID || ''), ctx.session, ctx.todayStr);
+  var attendees = session ? ctx.attendances.filter(function (a) { return a.開催ID === session.開催ID && a.状態 === '有効'; }) : [];
+  var asOf = session ? String(session.日付) : ctx.todayStr; // お祝い（周年・節目）はその回の日付で判定する
   var memberById = {};
   Repo.readAll('会員').forEach(function (m) { memberById[m.会員ID] = m; });
   var sessById = {};
@@ -319,16 +325,22 @@ function adminToday() {
   Object.keys(unpaidByMember).forEach(function (id) { unpaidTotal += unpaidByMember[id]; });
   return {
     ok: true,
-    session: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 日付: ctx.session.日付, 時間帯: ctx.session.時間帯, 会場: ctx.session.会場 } : null,
-    list: ctx.todays.map(function (a) {
+    todayStr: ctx.todayStr,
+    session: session ? { 開催ID: session.開催ID, 通算番号: session.通算番号, 日付: session.日付, 時間帯: session.時間帯, 会場: session.会場, 状態: session.状態,
+      today: String(session.日付) === ctx.todayStr } : null,
+    sessions: attendedSessionOptions(ctx.sessions, ctx.todayStr, counts).map(function (s) {
+      return { 開催ID: s.開催ID, 通算番号: s.通算番号, 日付: s.日付, 時間帯: s.時間帯, 状態: s.状態, count: counts[s.開催ID] || 0, today: String(s.日付) === ctx.todayStr };
+    }),
+    list: attendees.map(function (a) {
       var m = memberById[a.会員ID] || {};
       var mine = ctx.attendances.filter(function (x) { return x.会員ID === a.会員ID && x.状態 === '有効'; })
-        .map(function (x) { var s = sessById[x.開催ID] || {}; return s.日付 || String(x.日時).slice(0, 10); }).sort();
+        .map(function (x) { var s = sessById[x.開催ID] || {}; return s.日付 || String(x.日時).slice(0, 10); })
+        .filter(function (d) { return d <= asOf; }).sort();
       return { 出席ID: a.出席ID, 日時: a.日時, 表示名: a.表示名, 支払い種別: a.支払い種別, 金額: a.金額, 記録方法: a.記録方法, unpaid: unpaidByMember[a.会員ID] || 0,
-        celebrate: celebrations(m.入会日, ctx.todayStr, mine).map(function (c) { return c.label; }) };
+        celebrate: celebrations(m.入会日, asOf, mine).map(function (c) { return c.label; }) };
     }),
-    cashTotal: ctx.todays.reduce(function (sum, a) { return sum + (Number(a.金額) || 0); }, 0),
-    todayUnpaid: todayUnpaidTotal(ctx.todays, purchases),
+    cashTotal: attendees.reduce(function (sum, a) { return sum + (Number(a.金額) || 0); }, 0),
+    todayUnpaid: todayUnpaidTotal(attendees, purchases),
     unpaidTotal: unpaidTotal,
   };
 }
@@ -368,13 +380,18 @@ function adminApprove(body, admin) {
   return { ok: true, message: pending.表示名 + ' を新規会員として承認しました' };
 }
 
+// 開催の一覧（month 指定が無ければ全部）。出席人数は出席タブから数えた今の値
 function adminSessions(body) {
   var sessions = Repo.readAll('開催');
+  var counts = countAttendanceBySession(Repo.readAll('出席'));
   var month = body.month ? String(body.month) : ''; // 'YYYY-MM'
   var list = sessions.filter(function (s) { return !month || String(s.日付).indexOf(month) === 0; })
-    .sort(function (a, b) { return a.日付 < b.日付 ? -1 : 1; })
-    .map(function (s) { return { 開催ID: s.開催ID, 通算番号: s.通算番号, 日付: s.日付, 時間帯: s.時間帯, 会場: s.会場, 状態: s.状態, 出席人数: s.出席人数 }; });
-  return { ok: true, list: list };
+    .sort(function (a, b) {
+      if (a.日付 !== b.日付) return a.日付 < b.日付 ? -1 : 1;
+      return (a.時間帯 === '夜' ? 1 : 0) - (b.時間帯 === '夜' ? 1 : 0);
+    })
+    .map(function (s) { return { 開催ID: s.開催ID, 通算番号: s.通算番号, 日付: s.日付, 時間帯: s.時間帯, 会場: s.会場, 状態: s.状態, 出席人数: counts[s.開催ID] || 0 }; });
+  return { ok: true, list: list, todayStr: formatDate(new Date()) };
 }
 
 function adminUpsertSession(body) {

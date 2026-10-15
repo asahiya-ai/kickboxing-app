@@ -148,6 +148,19 @@ details.card summary::before { color: var(--navy); }
 .kubun-box { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; margin-top: 10px; }
 .kubun-box button { padding: 8px 10px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .outside-line { margin: 18px 0 4px; padding: 8px 10px; background: #eceff5; color: var(--muted); font-weight: 700; border-radius: 8px; text-align: center; }
+
+/* 管理画面：開催の一覧（月ごとの見出し・済み/中止/今日）と、参加者の回選び */
+.month-row td { background: #eef2fb; color: var(--navy); font-weight: 800; padding: 8px 6px; border-radius: 6px; }
+tr.s-off td { color: #aaa; }
+tr.s-today td { background: #fff8e1; }
+.cnt-btn { min-width: 44px; padding: 6px 10px; border: 1px solid var(--navy); border-radius: 8px; background: #fff; color: var(--navy); font-weight: 800; font-size: 15px; }
+.view-row { display: flex; align-items: center; gap: 8px; margin: 16px 0 4px; }
+.view-row select { flex: 1; margin-top: 0; font-size: 16px; padding: 8px; }
+.att-by { font-size: 11px; color: var(--muted); }
+#t-sessions table { font-size: 13px; }
+#t-sessions th, #t-sessions td { white-space: nowrap; padding: 8px 2px; }
+#t-sessions td button { white-space: nowrap; padding: 4px 6px; font-size: 12px; }
+#t-sessions td .cnt-btn { min-width: 40px; padding: 5px 8px; font-size: 14px; }
 </style>
 </head>
 <body>

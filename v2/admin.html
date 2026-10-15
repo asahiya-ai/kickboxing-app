@@ -148,6 +148,19 @@ details.card summary::before { color: var(--navy); }
 .kubun-box { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; margin-top: 10px; }
 .kubun-box button { padding: 8px 10px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .outside-line { margin: 18px 0 4px; padding: 8px 10px; background: #eceff5; color: var(--muted); font-weight: 700; border-radius: 8px; text-align: center; }
+
+/* 管理画面：開催の一覧（月ごとの見出し・済み/中止/今日）と、参加者の回選び */
+.month-row td { background: #eef2fb; color: var(--navy); font-weight: 800; padding: 8px 6px; border-radius: 6px; }
+tr.s-off td { color: #aaa; }
+tr.s-today td { background: #fff8e1; }
+.cnt-btn { min-width: 44px; padding: 6px 10px; border: 1px solid var(--navy); border-radius: 8px; background: #fff; color: var(--navy); font-weight: 800; font-size: 15px; }
+.view-row { display: flex; align-items: center; gap: 8px; margin: 16px 0 4px; }
+.view-row select { flex: 1; margin-top: 0; font-size: 16px; padding: 8px; }
+.att-by { font-size: 11px; color: var(--muted); }
+#t-sessions table { font-size: 13px; }
+#t-sessions th, #t-sessions td { white-space: nowrap; padding: 8px 2px; }
+#t-sessions td button { white-space: nowrap; padding: 4px 6px; font-size: 12px; }
+#t-sessions td .cnt-btn { min-width: 40px; padding: 5px 8px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -163,16 +176,19 @@ details.card summary::before { color: var(--navy); }
   <div id="gate" class="card">確認中…</div>
   <div id="app" class="hidden">
     <div class="tabs">
-      <button data-tab="today" class="on">今日</button>
+      <button data-tab="today" class="on">参加者</button>
       <button data-tab="sessions">開催</button>
       <button data-tab="members">会員</button>
     </div>
 
+    <!-- 参加者：開催日を選んで、誰が来たかを見る（日付をまたいでも前の回を見られる） -->
     <div id="t-today" class="card">
-      <div id="todayHead" class="sub"></div>
+      <label class="sub" for="todaySess" style="margin-top:0">見る回（今日までの開催・新しい順）</label>
+      <select id="todaySess"></select>
+      <div id="todayHead" class="sub" style="margin-top:10px"></div>
       <table><thead><tr><th>時刻</th><th>名前</th><th>種別</th><th>金額</th></tr></thead><tbody id="todayRows"></tbody></table>
-      <p><b>本日の受け取り合計：<span id="cashTotal">0</span> 円</b></p>
-      <p>今日来た人の未収：<span id="todayUnpaid">0</span> 円<br><span class="sub">全体の未収（今日来ていない人・過去の分も含む）：<span id="unpaidTotal">0</span> 円</span></p>
+      <p><b>この回の受け取り合計（都度・体験）：<span id="cashTotal">0</span> 円</b></p>
+      <p>この回に来た人の未収（今の時点）：<span id="todayUnpaid">0</span> 円<br><span class="sub">全体の未収（来ていない人・過去の分も含む）：<span id="unpaidTotal">0</span> 円</span></p>
       <button class="btn sec sm" id="btnTodayReload">更新</button>
     </div>
 
@@ -195,7 +211,8 @@ details.card summary::before { color: var(--navy); }
         <option value="まちなかコミュニティ２F第4講座室">まちなかコミュニティ２F第4講座室</option>
       </select>
       <button class="btn" id="btnAddSession" style="margin-top:8px">登録</button>
-      <p class="sub" style="margin-top:16px">月：<input type="text" id="sMonth" placeholder="2026-09" style="width:120px"> <button id="btnSessionsReload">表示</button></p>
+      <div class="view-row"><span class="sub">表示</span><select id="sView"></select><button class="btn sec sm" id="btnSessionsReload" style="width:auto;margin-top:0">更新</button></div>
+      <p class="sub" style="margin:0 0 4px">人数を押すと、その回に来た人を見られます</p>
       <table><thead><tr><th>第</th><th>日付</th><th>昼夜</th><th>会場</th><th>状態</th><th>人数</th><th></th></tr></thead><tbody id="sessionRows"></tbody></table>
     </div>
 
@@ -224,20 +241,44 @@ function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.cl
 function slotLabel(t) { return t === '夜' ? '夜 19:00〜21:00' : '昼 10:00〜12:00'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['today', 'pending', 'sessions', 'members'].forEach(t => $('t-' + t).classList.toggle('hidden', t !== b.dataset.tab));
-  ({ today: loadToday, pending: loadPending, sessions: loadSessions, members: loadMembers })[b.dataset.tab]();
-});
+function showTab(name) {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x.dataset.tab === name));
+  ['today', 'pending', 'sessions', 'members'].forEach(t => $('t-' + t).classList.toggle('hidden', t !== name));
+  ({ today: loadToday, pending: loadPending, sessions: loadSessions, members: loadMembers })[name]();
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
+const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+// 'YYYY-MM-DD' → '10/14(水)'。今年でなければ年も付ける
+function dayLabel(ymd, todayStr) {
+  const d = new Date(ymd + 'T00:00:00');
+  const y = todayStr && ymd.slice(0, 4) !== todayStr.slice(0, 4) ? d.getFullYear() + '/' : '';
+  return y + (d.getMonth() + 1) + '/' + d.getDate() + '(' + WEEK[d.getDay()] + ')';
+}
+
+// 参加者：見る回（空＝今日いま開いている回 → 無ければ今日までのいちばん新しい回）
+let todaySessId = '';
 async function loadToday() {
-  const r = await KickApi.call('admin.today');
+  const r = await KickApi.call('admin.today', { 開催ID: todaySessId || undefined });
   if (!r.ok) return msg(r.message, true);
-  $('todayHead').textContent = r.session ? '第' + r.session.通算番号 + '回 ' + r.session.日付 + '（' + slotLabel(r.session.時間帯) + '）' + (r.session.会場 || '') : '今日の開催はありません';
-  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(String(a.日時).slice(11, 16)) + '</td><td>' + esc(a.表示名) + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + ((a.celebrate || []).length ? '<div style="color:#b8860b;font-size:12px;font-weight:700">🎉 ' + esc(a.celebrate.join('・')) + '</div>' : '') + '</td><td>' + esc(a.支払い種別) + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">まだ出席がありません</td></tr>';
+  const s = r.session;
+  $('todaySess').innerHTML = (r.sessions || []).map(o => '<option value="' + esc(o.開催ID) + '">'
+    + esc((o.通算番号 ? '第' + o.通算番号 + '回 ' : '') + dayLabel(o.日付, r.todayStr) + ' ' + o.時間帯 + '・' + o.count + '人' + (o.today ? '・今日' : '') + (o.状態 === '中止' ? '（中止の回）' : ''))
+    + '</option>').join('') || '<option value="">（まだ開催がありません）</option>';
+  if (s) $('todaySess').value = s.開催ID;
+  $('todayHead').textContent = s ? (s.通算番号 ? '第' + s.通算番号 + '回 ' : '') + dayLabel(s.日付, r.todayStr) + (s.today ? '・今日' : '') + '（' + slotLabel(s.時間帯) + '）' + (s.会場 || '') + '　' + r.list.length + '人' : '開催がありません';
+  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(attTime(a, s)) + '</td><td>' + esc(a.表示名) + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + ((a.celebrate || []).length ? '<div style="color:#b8860b;font-size:12px;font-weight:700">🎉 ' + esc(a.celebrate.join('・')) + '</div>' : '') + '</td><td>' + esc(a.支払い種別) + (/^代打ち/.test(a.記録方法 || '') ? '<div class="att-by">管理者が記録</div>' : '') + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">' + (s && s.today ? 'まだ出席がありません' : 'この回の出席はありません') + '</td></tr>';
   $('cashTotal').textContent = r.cashTotal.toLocaleString();
   $('todayUnpaid').textContent = (r.todayUnpaid || 0).toLocaleString();
   $('unpaidTotal').textContent = (r.unpaidTotal || 0).toLocaleString();
+}
+
+// 出席した時刻。練習の日とは別の日に管理者が記録したものは「10/15記録」、旧アプリからの取り込みは「―」
+function attTime(a, s) {
+  if (/^移行/.test(a.記録方法 || '')) return '―';
+  const d = String(a.日時).slice(0, 10);
+  if (!s || d === String(s.日付)) return String(a.日時).slice(11, 16);
+  return Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) + '記録';
 }
 
 async function loadPending() {
@@ -257,11 +298,57 @@ async function loadPending() {
   });
 }
 
+// 開催の一覧：既定は「今月から先を全部」（10月・11月・12月…と続けて見る）。過去の月・全部にも切り替えられる
+let sessionsCache = [], sessionsToday = '', sessView = 'future';
 async function loadSessions() {
-  const r = await KickApi.call('admin.sessions', { month: $('sMonth').value.trim() || undefined });
+  const r = await KickApi.call('admin.sessions');
   if (!r.ok) return msg(r.message, true);
-  $('sessionRows').innerHTML = r.list.map(s => '<tr><td>' + esc(s.通算番号) + '</td><td>' + esc(s.日付) + '</td><td>' + esc(s.時間帯) + '</td><td>' + esc(s.会場) + '</td><td>' + esc(s.状態) + '</td><td>' + esc(s.出席人数) + '</td><td>'
-    + (s.状態 !== '中止' ? '<button data-cancel="' + esc(s.開催ID) + '" data-date="' + esc(s.日付) + '" data-slot="' + esc(s.時間帯) + '" data-place="' + esc(s.会場) + '">中止</button>' : '') + '</td></tr>').join('');
+  sessionsCache = r.list;
+  sessionsToday = r.todayStr || localToday();
+  const months = [...new Set(sessionsCache.map(s => String(s.日付).slice(0, 7)))].sort().reverse();
+  const live = (ym) => sessionsCache.filter(s => String(s.日付).startsWith(ym) && s.状態 !== '中止').length;
+  $('sView').innerHTML = '<option value="future">今月から先（全部）</option><option value="all">すべて（過去も）</option>'
+    + months.map(ym => '<option value="' + ym + '">' + ym.slice(0, 4) + '年' + Number(ym.slice(5)) + '月（' + live(ym) + '回）</option>').join('');
+  if (sessView !== 'future' && sessView !== 'all' && !months.includes(sessView)) sessView = 'future';
+  $('sView').value = sessView;
+  renderSessions();
+}
+
+function localToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// 会場はスマホの幅に収まるよう短く（まちなかコミュニティ２F第4講座室 → まちなか）
+function placeShort(p) { return String(p || '').replace(/コミュニティ.*$/, ''); }
+
+function renderSessions() {
+  const today = sessionsToday, thisMonth = today.slice(0, 7);
+  const list = sessionsCache.filter(s => {
+    const ym = String(s.日付).slice(0, 7);
+    return sessView === 'all' || (sessView === 'future' ? ym >= thisMonth : ym === sessView);
+  });
+  let html = '', month = '';
+  list.forEach(s => {
+    const ym = String(s.日付).slice(0, 7);
+    if (ym !== month) {
+      month = ym;
+      const inMonth = list.filter(x => String(x.日付).startsWith(ym));
+      const off = inMonth.filter(x => x.状態 === '中止').length;
+      html += '<tr class="month-row"><td colspan="7">' + ym.slice(0, 4) + '年' + Number(ym.slice(5)) + '月　' + (inMonth.length - off) + '回' + (off ? '・お休み ' + off : '') + '</td></tr>';
+    }
+    const past = s.日付 < today, isToday = s.日付 === today, off = s.状態 === '中止';
+    const state = off ? '中止' : isToday ? '今日' : past ? '済' : '予定';
+    const n = Number(s.出席人数) || 0;
+    // 人数：今日までの回（と、出席が残っている中止の回）は押すと「参加者」でその回を開く
+    const count = s.日付 <= today && (n > 0 || !off)
+      ?'<button class="cnt-btn" data-view-sess="' + esc(s.開催ID) + '">' + n + '人</button>' : (off ? '' : '―');
+    // 中止にできるのは今日から先の回だけ（済んだ回を間違って中止にしない）
+    const cancel = !off && s.日付 >= today ? '<button data-cancel="' + esc(s.開催ID) + '" data-date="' + esc(s.日付) + '" data-slot="' + esc(s.時間帯) + '" data-place="' + esc(s.会場) + '">中止</button>' : '';
+    html += '<tr class="' + (off ? 's-off' : isToday ? 's-today' : '') + '"><td>' + esc(s.通算番号) + '</td><td>' + esc(dayLabel(s.日付, today)) + '</td><td>' + esc(s.時間帯) + '</td><td>' + esc(placeShort(s.会場)) + '</td><td>' + state + '</td><td>' + count + '</td><td>' + cancel + '</td></tr>';
+  });
+  $('sessionRows').innerHTML = html || '<tr><td colspan="7" class="sub">この期間の開催はまだ登録されていません</td></tr>';
+  $('sessionRows').querySelectorAll('[data-view-sess]').forEach(b => b.onclick = () => { todaySessId = b.dataset.viewSess; showTab('today'); });
   $('sessionRows').querySelectorAll('[data-cancel]').forEach(b => b.onclick = async () => {
     if (!confirm(b.dataset.date + ' ' + b.dataset.slot + ' を中止にしますか？')) return;
     const rr = await KickApi.call('admin.upsertSession', { 開催ID: b.dataset.cancel, 日付: b.dataset.date, 時間帯: b.dataset.slot, 会場: b.dataset.place, 状態: '中止' });
@@ -281,7 +368,6 @@ async function loadMembers() {
 
 // 出席の種別の見せ方
 const ATT_LABEL = { 入会: '初回無料（入会）', 券: '券', 都度: '都度', 体験: '体験', 事務長: '事務長（無料）', 免除: '免除', 移行: '移行（旧アプリ）' };
-const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
 function sessionLabel(s) {
   const d = new Date(s.日付 + 'T00:00:00');
   return '第' + s.通算番号 + '回 ' + (d.getMonth() + 1) + '/' + d.getDate() + '(' + WEEK[d.getDay()] + ') ' + s.時間帯 + (s.today ? '・今日' : '');
@@ -549,15 +635,21 @@ $('btnAddSession').onclick = async () => {
   const slot = document.querySelector('input[name=slot]:checked').value;
   const r = await KickApi.call('admin.upsertSession', { 日付: $('sDate').value.trim(), 時間帯: slot, 会場: $('sPlace').value || '武道館', 状態: '予定' });
   msg(r.ok ? '登録しました' : r.message, !r.ok);
-  if (r.ok) { $('sMonth').value = $('sDate').value.trim().slice(0, 7); loadSessions(); }
+  if (r.ok) {
+    // 登録した回が見える表示にする（今月から先なら「今月から先」、過去ならその月）
+    const ym = $('sDate').value.trim().slice(0, 7);
+    sessView = ym >= localToday().slice(0, 7) ? 'future' : ym;
+    loadSessions();
+  }
 };
+$('sView').onchange = () => { sessView = $('sView').value; renderSessions(); };
+$('todaySess').onchange = () => { todaySessId = $('todaySess').value; loadToday(); };
 
 (async () => {
   if (!KickApi.token()) { $('gate').innerHTML = '先に <a href="checkin.html">受付画面</a> でログインしてください'; return; }
   const me = await KickApi.call('me');
   if (!me.ok || !me.isAdmin) { $('gate').textContent = me.needLogin ? '先に受付画面でログインしてください' : '管理者だけが開けます'; return; }
   $('gate').classList.add('hidden'); $('app').classList.remove('hidden');
-  $('sMonth').value = new Date().toISOString().slice(0, 7);
   loadToday();
 })();
 </script>

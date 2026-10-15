@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { validateRemaining, planMemberDeletion, recountSessions, todayUnpaidTotal, planAdminAttendance, recentSessionsForAdmin } = require('../gas/logic_admin.js');
+const { validateRemaining, planMemberDeletion, recountSessions, todayUnpaidTotal, planAdminAttendance, recentSessionsForAdmin, countAttendanceBySession, attendedSessionOptions, pickAdminViewSession } = require('../gas/logic_admin.js');
 
 test('残り回数：0〜50 の整数だけ受け付ける', () => {
   assert.deepEqual(validateRemaining('5'), { ok: true, value: 5 });
@@ -186,4 +186,36 @@ test('まだ先の回には記録できない', () => {
   assert.equal(r.ok, false);
   assert.match(r.message, /まだ先/);
   assert.equal(plan({ todayStr: '2026-10-07' }).ok, true);
+});
+
+// ---------- 開催の人数・参加者で見る回 ----------
+const viewSess = [
+  { 開催ID: 'K95', 通算番号: 95, 日付: '2026-10-07', 時間帯: '夜', 状態: '予定' },
+  { 開催ID: 'K96', 通算番号: 96, 日付: '2026-10-10', 時間帯: '昼', 状態: '予定' },
+  { 開催ID: 'K2', 通算番号: '', 日付: '2026-09-17', 時間帯: '昼', 状態: '中止' },
+  { 開催ID: 'K7', 通算番号: '', 日付: '2026-10-24', 時間帯: '昼', 状態: '中止' },
+  { 開催ID: 'K97', 通算番号: 97, 日付: '2026-10-14', 時間帯: '夜', 状態: '予定' },
+  { 開催ID: 'K98', 通算番号: 98, 日付: '2026-10-28', 時間帯: '夜', 状態: '予定' },
+];
+
+test('人数：開催ごとに有効な出席だけを数える（取消・開催IDなしは数えない）', () => {
+  const att = [
+    { 開催ID: 'K95', 状態: '有効' }, { 開催ID: 'K95', 状態: '有効' }, { 開催ID: 'K95', 状態: '取消' },
+    { 開催ID: 'K2', 状態: '有効' }, { 開催ID: '', 状態: '有効' },
+  ];
+  assert.deepEqual(countAttendanceBySession(att), { K95: 2, K2: 1 });
+});
+
+test('参加者で選べる回：今日までを新しい順に全部。中止の回は出席が残っているときだけ', () => {
+  const ids = attendedSessionOptions(viewSess, '2026-10-15', { K95: 11, K2: 1 }).map(s => s.開催ID);
+  assert.deepEqual(ids, ['K97', 'K96', 'K95', 'K2']); // 10/24（中止・0人）と 10/28（先の回）は出さない
+  assert.deepEqual(attendedSessionOptions(viewSess, '2026-10-15', {}).map(s => s.開催ID), ['K97', 'K96', 'K95']);
+});
+
+test('参加者で見る回：指定 → 今日の回 → 今日までのいちばん新しい回', () => {
+  assert.equal(pickAdminViewSession(viewSess, 'K95', null, '2026-10-15').開催ID, 'K95');
+  assert.equal(pickAdminViewSession(viewSess, 'K999', null, '2026-10-15').開催ID, 'K97'); // 見つからない指定は無視
+  assert.equal(pickAdminViewSession(viewSess, '', viewSess[4], '2026-10-14').開催ID, 'K97'); // 今日の練習
+  assert.equal(pickAdminViewSession(viewSess, '', null, '2026-10-15').開催ID, 'K97'); // 日付をまたいでも前の回
+  assert.equal(pickAdminViewSession(viewSess, '', null, '2026-01-01'), null);
 });
