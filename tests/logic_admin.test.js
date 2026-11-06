@@ -219,3 +219,44 @@ test('参加者で見る回：指定 → 今日の回 → 今日までのいち�
   assert.equal(pickAdminViewSession(viewSess, '', null, '2026-10-15').開催ID, 'K97'); // 日付をまたいでも前の回
   assert.equal(pickAdminViewSession(viewSess, '', null, '2026-01-01'), null);
 });
+
+// ---------- 100回記念（2026-11-07 だけ全員無料） ----------
+const free100 = { 開催ID: 'K100', 通算番号: 100, 日付: '2026-11-07', 時間帯: '昼', 状態: '予定' };
+const free100Member = (over) => Object.assign({ 会員ID: 'M1', 表示名: 'テスト', 区分: '一般', 状態: '有効', 残り回数: 3, 入会日: '2026-09-01' }, over);
+
+test('100回記念：管理者が記録しても券は減らず0円', () => {
+  const r = planAdminAttendance({ member: free100Member(), session: free100, type: '100回記念', todayStr: '2026-11-07' });
+  assert.equal(r.ok, true);
+  assert.equal(r.mode, 'add');
+  assert.deepEqual(r.attendance, { 支払い種別: '100回記念', 金額: 0, 消化: false });
+  assert.equal(r.remainingAfter, 3);
+  assert.equal(r.joinDate, null);
+});
+
+test('100回記念：券で記録された人を直すと券が1回戻る', () => {
+  const r = planAdminAttendance({ member: free100Member({ 残り回数: 2 }), session: free100, existing: { 支払い種別: '券', 消化: true }, type: '100回記念', todayStr: '2026-11-07' });
+  assert.equal(r.ok, true);
+  assert.equal(r.mode, 'change');
+  assert.equal(r.remainingAfter, 3);
+});
+
+test('100回記念：初めての人の入会日は入れない', () => {
+  const r = planAdminAttendance({ member: free100Member({ 入会日: '' }), session: free100, type: '100回記念', todayStr: '2026-11-07' });
+  assert.equal(r.ok, true);
+  assert.equal(r.joinDate, null);
+});
+
+test('100回記念：ほかの回には記録できない', () => {
+  const other = Object.assign({}, free100, { 開催ID: 'K99', 日付: '2026-11-02' });
+  const r = planAdminAttendance({ member: free100Member(), session: other, type: '100回記念', todayStr: '2026-11-07' });
+  assert.equal(r.ok, false);
+  assert.match(r.message, /100回記念/);
+});
+
+test('100回記念で来ただけの人は、次の回でも初回無料を付けられる', () => {
+  const next = Object.assign({}, free100, { 開催ID: 'K101', 日付: '2026-11-16' });
+  const r = planAdminAttendance({ member: free100Member({ 入会日: '' }), session: next, type: '入会', todayStr: '2026-11-16',
+    others: [{ 日付: '2026-11-07', 支払い種別: '100回記念' }] });
+  assert.equal(r.ok, true);
+  assert.equal(r.joinDate, '2026-11-16');
+});

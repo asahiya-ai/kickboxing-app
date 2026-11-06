@@ -50,7 +50,7 @@ function todayUnpaidTotal(todays, purchases) {
 // ---------- 管理者が出席を記録・直す（代打ち・種別の直し・取消） ----------
 // GAS では logic_checkin.js の isExempt / isJimu がグローバルにある。Node のテストでは require で取る
 function _kubun() {
-  return typeof isJimu === 'function' ? { isExempt: isExempt, isJimu: isJimu } : require('./logic_checkin.js');
+  return typeof isJimu === 'function' ? { isExempt: isExempt, isJimu: isJimu, isFreeSession: isFreeSession, FREE_SESSION: FREE_SESSION } : require('./logic_checkin.js');
 }
 
 // 管理者が選べる種別（表示名は画面側）。'取消' は出席を取り消す
@@ -66,7 +66,9 @@ function _consumed(a) {
 function planAdminAttendance(input) {
   var k = _kubun();
   var m = input.member, s = input.session, ex = input.existing || null, type = String(input.type || '');
-  var others = input.others || [];
+  // 全員無料の回に来ただけでは「初めて来た」に数えない（入会日も入れていないので、初回無料はその次に使える）
+  var freeType = k.FREE_SESSION.種別;
+  var others = (input.others || []).filter(function (o) { return o.支払い種別 !== freeType; });
   if (!m) return { ok: false, message: '会員が見つかりません' };
   if (!s) return { ok: false, message: '練習の回を選んでください' };
   if (s.状態 === '中止') return { ok: false, message: '中止の回には記録できません' };
@@ -84,7 +86,9 @@ function planAdminAttendance(input) {
     }
     return { ok: true, mode: 'cancel', attendance: null, remainingAfter: remaining + back, joinDate: joinBack };
   }
-  if (ADMIN_ATT_TYPES.indexOf(type) < 0) return { ok: false, message: '種別を選んでください' };
+  var isFree = type === freeType;
+  if (ADMIN_ATT_TYPES.indexOf(type) < 0 && !isFree) return { ok: false, message: '種別を選んでください' };
+  if (isFree && !k.isFreeSession(s)) return { ok: false, message: '「' + freeType + '」は ' + k.FREE_SESSION.日付 + ' の回だけ選べます' };
   if (type === '事務長' && !k.isJimu(m)) return { ok: false, message: '「事務長」は区分が事務長・副事務長の人だけ選べます' };
   if (type === '事務長' && input.jimuHolder && input.jimuHolder.会員ID !== m.会員ID) {
     return { ok: false, message: 'この回の事務長の無料は ' + input.jimuHolder.表示名 + ' が使っています（1回に1人）。先にそちらを直してください' };
@@ -110,7 +114,7 @@ function planAdminAttendance(input) {
     amount = Number(price.金額) || 0;
   }
   // 入会日＝初めて出席した日。空か、記録する回より後なら、その回の日付にする
-  var joinDate = !m.入会日 || String(m.入会日) > String(s.日付) ? String(s.日付) : null;
+  var joinDate = !isFree && (!m.入会日 || String(m.入会日) > String(s.日付)) ? String(s.日付) : null;
   return { ok: true, mode: ex ? 'change' : 'add', attendance: { 支払い種別: type, 金額: amount, 消化: use === 1 }, remainingAfter: after, joinDate: joinDate };
 }
 

@@ -153,3 +153,50 @@ test('事務長は免除ではない（券は買える・残りも表示する�
   assert.equal(isJimu({ 区分: ' 副事務長 ' }), true);
   assert.equal(isJimu({ 区分: '部長' }), false);
 });
+
+// ---------- 100回記念（2026-11-07 だけ全員無料） ----------
+const freeSession = { 開催ID: 'K100', 通算番号: 100, 日付: '2026-11-07', 時間帯: '昼', 状態: '予定' };
+
+test('全員無料の回：券が残っていても消化しない・お金も券の購入も動かない', () => {
+  const r = decideCheckin({ member: member({ 残り回数: 3 }), session: freeSession, alreadyAttended: false, prices, choice: null });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.attendance, { 支払い種別: '100回記念', 金額: 0, 消化: false });
+  assert.equal(r.remainingAfter, 3);
+  assert.equal(r.purchase, null);
+});
+
+test('全員無料の回：残り0でも選択肢を出さずに無料で記録', () => {
+  const r = decideCheckin({ member: member({ 残り回数: 0 }), session: freeSession, alreadyAttended: false, prices, choice: null });
+  assert.equal(r.ok, true);
+  assert.equal(r.needChoice, undefined);
+  assert.equal(r.attendance.支払い種別, '100回記念');
+  assert.equal(r.remainingAfter, 0);
+});
+
+test('全員無料の回：初めての人は入会日を入れない（次に来たときが初回のまま）', () => {
+  const r = decideCheckin({ member: member({ 入会日: '' }), session: freeSession, alreadyAttended: false, prices, choice: null });
+  assert.equal(r.ok, true);
+  assert.equal(r.attendance.支払い種別, '100回記念');
+  assert.equal(r.setJoinDate, false);
+});
+
+test('全員無料の回：部長・事務長も同じ種別にそろえる', () => {
+  ['部長', '免除', '事務長', '副事務長'].forEach((k) => {
+    const r = decideCheckin({ member: member({ 区分: k, 残り回数: 2 }), session: freeSession, alreadyAttended: false, prices, choice: null });
+    assert.equal(r.attendance.支払い種別, '100回記念', k);
+    assert.equal(r.remainingAfter, 2, k);
+  });
+});
+
+test('全員無料の回でも、受付済み・有効でない人は通さない', () => {
+  assert.match(decideCheckin({ member: member(), session: freeSession, alreadyAttended: true, prices, choice: null }).message, /受付済み/);
+  assert.equal(decideCheckin({ member: member({ 状態: '承認待ち' }), session: freeSession, alreadyAttended: false, prices, choice: null }).ok, false);
+});
+
+test('ほかの日はこれまでどおり券を使う', () => {
+  ['2026-11-02', '2026-11-16'].forEach((d) => {
+    const r = decideCheckin({ member: member({ 残り回数: 3 }), session: Object.assign({}, freeSession, { 日付: d }), alreadyAttended: false, prices, choice: null });
+    assert.equal(r.attendance.支払い種別, '券', d);
+    assert.equal(r.remainingAfter, 2, d);
+  });
+});

@@ -283,6 +283,8 @@ let attendedToday = false; // 今日もう出席を押したか（券を買っ�
 function show(id) { ['loading', 'v-login', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
 function slotLabel(t) { return t === '夜' ? '夜 19:00〜21:00' : '昼 10:00〜12:00'; }
+// 全員無料の回（100回記念）は出席ボタンの言葉を変える
+function checkinLabel() { return todayInfo && todayInfo.free ? '本日参加（' + todayInfo.free + '・無料）' : '出席する'; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 async function load() {
@@ -396,6 +398,7 @@ function render(r) {
     $('todayCard').classList.remove('hidden');
     todayInfo = r.today;
     attendedToday = !!r.attendedToday;
+    $('btnCheckin').textContent = checkinLabel();
     $('confirmBox').classList.add('hidden');
     $('btnCheckin').classList.toggle('hidden', r.attendedToday);
     $('doneLine').classList.toggle('hidden', !r.attendedToday);
@@ -437,7 +440,7 @@ async function checkin(choice) {
   try {
     r = await KickApi.call('checkin', { choice });
   } finally {
-    $('btnCheckin').disabled = false; $('btnCheckin').textContent = '出席する';
+    $('btnCheckin').disabled = false; $('btnCheckin').textContent = checkinLabel();
   }
   if (r.needChoice) {
     msg('');
@@ -451,8 +454,10 @@ async function checkin(choice) {
   const parts = ['受付しました'];
   if (r.type === '入会') parts.push('初回は無料です');
   if (r.type === '事務長') parts.push('今日は事務長として無料です');
+  const free = todayInfo && r.type === todayInfo.free;
+  if (free) parts.push('今日は' + r.type + 'で無料です（回数券は使いません）');
   if (r.type === '券') parts.push('残り ' + r.remaining + ' 回');
-  if (r.remaining === 1) parts.push('次の券をご用意ください');
+  if (r.remaining === 1 && !free) parts.push('次の券をご用意ください');
   if (r.amount > 0) parts.push('本日 ' + r.amount.toLocaleString() + ' 円をお支払いください');
   if (r.unpaid > 0) parts.push('回数券のお支払い（' + r.unpaid.toLocaleString() + '円）は管理者へ');
   msg(parts.join('。') + '。', false);
@@ -474,7 +479,9 @@ $('btnReload1').onclick = load;
 let doCheckin = () => checkin(null);
 function askCheckin() {
   const t = todayInfo;
-  $('confirmQ').textContent = (t ? '今日（第' + t.通算番号 + '回・' + t.時間帯 + '）の' : '今日の') + '練習に参加しますか？';
+  $('confirmQ').textContent = t && t.free ? '今日は' + t.free + 'で全員無料です。回数券は使いません。参加しますか？'
+    : (t ? '今日（第' + t.通算番号 + '回・' + t.時間帯 + '）の' : '今日の') + '練習に参加しますか？';
+  $('btnYes').textContent = t && t.free ? 'はい、参加する' : 'はい、出席する';
   $('btnCheckin').classList.add('hidden');
   $('confirmBox').classList.remove('hidden');
 }
@@ -499,12 +506,13 @@ $('btnLogout1').onclick = logout;
 
 // ?demo=1 で開くと架空の会員データで画面だけ見られる（サーバーには何も送らない）
 const demoMode = new URLSearchParams(location.search).get('demo');
-if (demoMode === '1' || demoMode === '2' || demoMode === '3') {
+if (demoMode === '1' || demoMode === '2' || demoMode === '3' || demoMode === '4') {
   const t = new Date(); const y = t.getFullYear(), m = t.getMonth() + 1;
   const ym = (mm) => y + '-' + String(mm).padStart(2, '0');
   const todayStr = ym(m) + '-' + String(t.getDate()).padStart(2, '0');
   const full = demoMode === '2'; // 5回目を使った直後（残り0）
-  const dayOf = demoMode === '3'; // 練習日当日・まだ押していない
+  const free100 = demoMode === '4'; // 100回記念の当日（全員無料）
+  const dayOf = demoMode === '3' || free100; // 練習日当日・まだ押していない
   render({
     displayName: 'デモ太郎', kubun: '一般', exempt: false, isAdmin: false, remaining: full ? 0 : 2, joinDate: '2024-01-13',
     stats: { total: full ? 25 : 23, held: 60, attended: full ? 25 : 23, rate: full ? 42 : 38 }, recent: { rate: full ? 80 : 60 }, attendedToday: full, todayStr,
@@ -514,13 +522,13 @@ if (demoMode === '1' || demoMode === '2' || demoMode === '3') {
     history: [{ 日付: ym(m) + '-26', 通算番号: 94, 種別: '券' }, { 日付: ym(m) + '-12', 通算番号: 92, 種別: '券' }, { 日付: ym(m - 1 || 12) + '-22', 通算番号: 90, 種別: '券' }],
     unpaid: full ? 3980 : 0, ticketPrice: 3980, days: 981,
     celebrations: dayOf ? [{ type: 'anniversary', years: 2, label: '入会2周年おめでとう！' }] : (full ? [{ type: 'milestone', count: 30, label: '通算30回達成！' }] : []),
-    today: dayOf ? { 開催ID: 'KDEMO', 通算番号: 94, 時間帯: '昼', count: 3, names: ['ミヤさん', 'ノブさん', '空手のジョーさん'] } : null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
+    today: dayOf ? { 開催ID: 'KDEMO', 通算番号: free100 ? 100 : 94, 時間帯: '昼', free: free100 ? '100回記念' : '', count: 3, names: ['ミヤさん', 'ノブさん', '空手のジョーさん'] } : null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
     calendar: [{ 日付: ym(m) + '-12', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-26', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-17', 時間帯: '昼', 状態: '中止' },
       { 日付: ym(m + 1) + '-07', 時間帯: '夜', 状態: '予定' }, { 日付: ym(m + 1) + '-10', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m + 1) + '-14', 時間帯: '夜', 状態: '予定' }],
   });
   if (dayOf) {
     msg('デモ表示です（練習日当日・まだ押していない状態）。「出席する」を押しても記録されません', false);
-    doCheckin = () => { msg('受付しました。残り 1 回。次の券をご用意ください。（デモ）', false); $('btnCheckin').classList.add('hidden'); $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです'; $('todayCount').textContent = '4'; $('todayNames').insertAdjacentHTML('beforeend', '<li>デモ太郎</li>'); $('doneLine').insertAdjacentHTML('afterend', '<button class="btn sec sm" id="btnDemoAgain">デモをやり直す（もう一度押せる状態に戻す）</button>'); $('btnDemoAgain').onclick = () => location.reload(); };
+    doCheckin = () => { msg(free100 ? '受付しました。今日は100回記念で無料です（回数券は使いません）。（デモ）' : '受付しました。残り 1 回。次の券をご用意ください。（デモ）', false); $('btnCheckin').classList.add('hidden'); $('doneLine').classList.remove('hidden'); $('doneLine').textContent = '本日は受付済みです'; $('todayCount').textContent = '4'; $('todayNames').insertAdjacentHTML('beforeend', '<li>デモ太郎</li>'); $('doneLine').insertAdjacentHTML('afterend', '<button class="btn sec sm" id="btnDemoAgain">デモをやり直す（もう一度押せる状態に戻す）</button>'); $('btnDemoAgain').onclick = () => location.reload(); };
   } else if (full) {
     $('todayLabel').textContent = '今日は 第100回（昼 10:00〜12:00）';
     $('actionCard').classList.remove('hidden'); $('todayCard').classList.remove('hidden'); $('btnCheckin').classList.add('hidden');

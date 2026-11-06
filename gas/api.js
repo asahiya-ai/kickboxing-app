@@ -18,7 +18,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-10-15-1' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-11-06-1' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -168,7 +168,7 @@ function actionMe(me) {
     ticket: ticketView(me, mine, byId),
     unpaid: unpaidAmount(me.会員ID),
     ticketPrice: (function () { var p = Repo.prices(); var c = me.区分 === '運営会員' ? 'ticket5_staff' : 'ticket5'; return p[c] ? p[c].金額 : null; })(),
-    today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯,
+    today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯, free: isFreeSession(ctx.session) ? FREE_SESSION.種別 : '',
       count: me.状態 === '有効' ? ctx.todays.length : 0, names: me.状態 === '有効' ? ctx.todays.map(function (a) { return a.表示名; }) : [] } : null,
     next: nextSessionAfter(ctx.sessions, ctx.todayStr),
     calendar: calendarSessions(ctx.sessions, ctx.todayStr),
@@ -457,7 +457,7 @@ function adminMembers() {
     sessions: (function () {
       var cur = pickTodaySession(sessions, todayStr, new Date(), Repo.setting('夜の境目時刻', '17:00'));
       return recent.map(function (s) { return { 開催ID: s.開催ID, 通算番号: s.通算番号, 日付: s.日付, 時間帯: s.時間帯, today: s.日付 === todayStr,
-        current: !!cur && cur.開催ID === s.開催ID, jimu: jimuBySession[s.開催ID] || '' }; });
+        current: !!cur && cur.開催ID === s.開催ID, jimu: jimuBySession[s.開催ID] || '', free: isFreeSession(s) ? FREE_SESSION.種別 : '' }; });
     })(),
     list: members.filter(function (m) { return m.状態 !== '退会'; }).map(function (m) {
       var mine = mineById[m.会員ID] || [];
@@ -713,7 +713,7 @@ function adminSetRemaining(body, admin) {
   }
 }
 
-// 管理者が出席を記録・直す・取り消す（会員カードから）。body: { 会員ID, 開催ID, type }。type は 入会／券／都度／体験／事務長／免除／取消
+// 管理者が出席を記録・直す・取り消す（会員カードから）。body: { 会員ID, 開催ID, type }。type は 入会／券／都度／体験／事務長／免除／100回記念／取消
 // 券の増減は「前の記録で使った券を戻す → 新しい種別で使う」で計算する。お金（購入タブ）には触らない
 function adminAttendance(body, admin) {
   var lock = LockService.getScriptLock();

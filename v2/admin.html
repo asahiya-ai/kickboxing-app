@@ -367,7 +367,7 @@ async function loadMembers() {
 }
 
 // 出席の種別の見せ方
-const ATT_LABEL = { 入会: '初回無料（入会）', 券: '券', 都度: '都度', 体験: '体験', 事務長: '事務長（無料）', 免除: '免除', 移行: '移行（旧アプリ）' };
+const ATT_LABEL = { 入会: '初回無料（入会）', 券: '券', 都度: '都度', 体験: '体験', 事務長: '事務長（無料）', 免除: '免除', 移行: '移行（旧アプリ）', '100回記念': '100回記念（無料）' };
 function sessionLabel(s) {
   const d = new Date(s.日付 + 'T00:00:00');
   return '第' + s.通算番号 + '回 ' + (d.getMonth() + 1) + '/' + d.getDate() + '(' + WEEK[d.getDay()] + ') ' + s.時間帯 + (s.today ? '・今日' : '');
@@ -388,6 +388,7 @@ function attBoxHtml(m) {
   const yen = (v) => (v === null || v === undefined ? '' : ' ' + Number(v).toLocaleString() + '円');
   const btn = (type, label, cls) => '<button data-att="' + type + '" data-id="' + id + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + label + '</button>';
   const def = (ss.find(s => s.current) || ss[0]).開催ID; // いま開いている回（無ければいちばん新しい回）
+  const free = (ss.find(s => s.free) || {}).free; // 全員無料の回（100回記念）が選べるときだけボタンを出す
   return '<div class="att-box"><div class="att-title">出席を記録・直す</div>'
     + '<select data-att-sess="' + id + '">' + ss.map(s => '<option value="' + esc(s.開催ID) + '"' + (s.開催ID === def ? ' selected' : '') + '>' + esc(sessionLabel(s)) + ((m.att || {})[s.開催ID] ? '　✔出席' : '') + '</option>').join('') + '</select>'
     + '<div class="att-now" data-att-now="' + id + '">' + attNowHtml(m, def) + '</div>'
@@ -398,6 +399,7 @@ function attBoxHtml(m) {
     + btn('体験', '体験' + yen(p.trial))
     + (m.jimu ? btn('事務長', '事務長（無料）', 'free') : '')
     + (m.exempt ? btn('免除', '免除', 'free') : '')
+    + (free ? btn(free, ATT_LABEL[free] || free, 'free') : '')
     + btn('取消', 'この回の出席を取消', 'cancel')
     + '</div><div class="sub" style="font-size:12px;margin-top:4px">お金（券の購入・入金）は変わりません。券を買った人は［券を付与］も押してください</div></div>';
 }

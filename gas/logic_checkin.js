@@ -10,6 +10,13 @@ var KUBUN_LIST = ['一般', '運営会員', '事務長', '副事務長', '部長
 var KUBUN_EXEMPT = ['免除', '部長', '副部長'];
 var KUBUN_JIMU = ['事務長', '副事務長'];
 
+// 全員無料の回（2026-11-07 第100回記念だけ）。出席は記録するが、お金も券も入会日も動かさない
+var FREE_SESSION = { 日付: '2026-11-07', 種別: '100回記念' };
+
+function isFreeSession(session) {
+  return !!session && String(session.日付) === FREE_SESSION.日付;
+}
+
 function isExempt(member) {
   return KUBUN_EXEMPT.indexOf(String(member.区分 || '').trim()) >= 0;
 }
@@ -38,6 +45,10 @@ function decideCheckin(input) {
   }
   if (input.alreadyAttended) {
     return { ok: false, message: '本日は受付済みです' };
+  }
+
+  if (isFreeSession(input.session)) {
+    return { ok: true, purchase: null, setJoinDate: false, attendance: { 支払い種別: FREE_SESSION.種別, 金額: 0, 消化: false }, remainingAfter: remaining };
   }
 
   var p = input.prices || {};
@@ -110,4 +121,4 @@ function decideCheckin(input) {
   };
 }
 
-if (typeof module !== 'undefined') module.exports = { decideCheckin, isExempt, isJimu, KUBUN_LIST, KUBUN_EXEMPT, KUBUN_JIMU };
+if (typeof module !== 'undefined') module.exports = { decideCheckin, isExempt, isJimu, isFreeSession, FREE_SESSION, KUBUN_LIST, KUBUN_EXEMPT, KUBUN_JIMU };
