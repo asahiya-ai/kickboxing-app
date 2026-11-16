@@ -225,18 +225,6 @@ td .chips { margin-top: 3px; }
     </div>
   </div>
 
-  <!-- 最初に配った共通の暗証番号のまま：自分だけの番号に変えてもらう -->
-  <div id="v-newpin" class="card hidden">
-    <h2>暗証番号を変えてください</h2>
-    <p>最初に配った暗証番号のままです。ほかの人に使われないよう、<b>自分だけの4桁</b>に変えてください。変えると、すぐに出席できます。</p>
-    <input type="tel" id="firstCur" maxlength="4" inputmode="numeric" pattern="\d*" placeholder="今の暗証番号（最初に配った番号）" autocomplete="current-password">
-    <input type="tel" id="firstNew" maxlength="4" inputmode="numeric" pattern="\d*" placeholder="新しい暗証番号（4桁）" autocomplete="new-password">
-    <input type="tel" id="firstNew2" maxlength="4" inputmode="numeric" pattern="\d*" placeholder="新しい暗証番号をもう一度" autocomplete="new-password">
-    <button class="btn" id="btnFirstPin" style="margin-top:12px">この番号に変える</button>
-    <p class="sub">新しい番号は忘れないようにしてください。忘れたらミヤに伝えると、番号をリセットできます。</p>
-    <button class="btn sec sm" id="btnLogout2">別の名前でログインする</button>
-  </div>
-
   <!-- 承認待ち -->
   <div id="v-pending" class="card hidden">
     <p><b id="pendingName"></b> さん、登録ありがとうございます。</p>
@@ -331,7 +319,7 @@ const $ = (id) => document.getElementById(id);
 let todayInfo = null; // 今日の練習（出席の確認文に使う）
 let attendedToday = false; // 今日もう出席を押したか（券を買ったあとの案内に使う）
 
-function show(id) { ['loading', 'v-login', 'v-newpin', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
+function show(id) { ['loading', 'v-login', 'v-pending', 'v-main'].forEach(v => $(v).classList.toggle('hidden', v !== id)); }
 function msg(text, isErr) { const m = $('msg'); m.textContent = text || ''; m.classList.toggle('err', !!isErr); m.classList.toggle('hidden', !text); }
 function slotLabel(t) { return t === '夜' ? '夜 19:00〜21:00' : '昼 10:00〜12:00'; }
 // 全員無料の回（100回記念）は出席ボタンの言葉を変える
@@ -341,8 +329,7 @@ function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 async function load() {
   if (!KickApi.token()) { show('v-login'); return; }
   const r = await KickApi.call('me');
-  if (r.needLogin) { if (r.message && r.message !== 'ログインしてください') msg(r.message, true); show('v-login'); return; }
-  if (r.mustChangePin) { show('v-newpin'); return; }
+  if (r.needLogin) { show('v-login'); return; }
   if (!r.ok) { msg(r.message, true); show('loading'); $('loading').textContent = '表示できませんでした'; return; }
   if (r.status === '承認待ち') { $('pendingName').textContent = r.displayName; show('v-pending'); return; }
   if (r.status !== '有効') {
@@ -578,21 +565,11 @@ $('btnRename').onclick = async () => {
 };
 $('btnChangePin').onclick = async () => {
   const r = await KickApi.call('changePin', { currentPin: $('curPin').value, newPin: $('newPin').value });
-  msg(r.message, !r.ok); if (r.ok) { if (r.token) KickApi.setToken(r.token); $('curPin').value = ''; $('newPin').value = ''; }
-};
-$('btnFirstPin').onclick = async () => {
-  if ($('firstNew').value !== $('firstNew2').value) { msg('新しい暗証番号が2回で違っています', true); return; }
-  const r = await KickApi.call('changePin', { currentPin: $('firstCur').value, newPin: $('firstNew').value });
-  msg(r.message, !r.ok);
-  if (!r.ok) return;
-  if (r.token) KickApi.setToken(r.token);
-  ['firstCur', 'firstNew', 'firstNew2'].forEach(id => { $(id).value = ''; });
-  await load();
+  msg(r.message, !r.ok); if (r.ok) { $('curPin').value = ''; $('newPin').value = ''; }
 };
 const logout = () => { if (confirm('この端末からログアウトしますか？（次回は名前と暗証番号が必要です）')) { KickApi.setToken(''); msg(''); load(); } };
 $('btnLogout').onclick = logout;
 $('btnLogout1').onclick = logout;
-$('btnLogout2').onclick = () => { KickApi.setToken(''); msg(''); load(); };
 
 // ?demo=1 で開くと架空の会員データで画面だけ見られる（サーバーには何も送らない）
 const demoMode = new URLSearchParams(location.search).get('demo');
