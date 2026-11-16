@@ -3,6 +3,9 @@
 var MSG_FAIL = '処理に失敗しました。時間をおいてもう一度お試しください';
 var MSG_BAD_LOGIN = '名前か暗証番号が違います';
 var MSG_LOCKED = '暗証番号の間違いが続いたためロックされています。管理者に連絡してください';
+var MSG_MUST_CHANGE = '最初に配った暗証番号のままです。安全のため、自分だけの4桁に変えてください';
+var MSG_ADMIN_COMMON = '管理画面に入れる人は、最初に配った暗証番号では入れません。ミヤに暗証番号のリセットを頼んでください';
+var MSG_PIN_TAKEN = 'その暗証番号は使えません。別の4桁にしてください';
 
 function doPost(e) {
   var out;
@@ -18,7 +21,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-11-17-3' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-11-17-4' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -31,6 +34,12 @@ function handleRequest(body) {
   var me = memberByToken(members, body.token);
   if (!me) return { ok: false, needLogin: true, message: 'ログインしてください' };
 
+  // 共通の暗証番号のままの人：管理画面に入れる人は使えない（ミヤがリセット）。ほかの人は番号の変更だけできる
+  if (isCommonPin(members, me)) {
+    if (isAdminRole(me)) return { ok: false, needLogin: true, message: MSG_ADMIN_COMMON };
+    if (action !== 'changePin') return { ok: false, mustChangePin: true, message: MSG_MUST_CHANGE };
+  }
+
   if (action.indexOf('admin.') === 0) {
     if (!isAdminMember(me)) return { ok: false, message: '管理者だけが使えます' };
     return handleAdmin(action, body, me);
@@ -38,7 +47,7 @@ function handleRequest(body) {
   switch (action) {
     case 'me': return actionMe(me);
     case 'rename': return actionRename(members, me, body);
-    case 'changePin': return actionChangePin(me, body);
+    case 'changePin': return actionChangePin(members, me, body);
     case 'checkin': return actionCheckin(me, body);
     case 'buyTicket': return actionBuyTicket(me);
     default: return { ok: false, message: '不明な操作です' };
@@ -58,9 +67,11 @@ function actionRegister(body) {
     // ロック内で読み直す（同時登録で同じ会員IDが振られるのを防ぐ）
     var fresh = Repo.readAll('会員');
     if (findByName(fresh, v.name)) return { ok: false, message: 'その名前はすでに使われています。少し変えて登録してください（例：のぶさん（最強生物））' };
+    var hash = hashPin(body.pin);
+    if (isTakenPin(fresh, hash)) return { ok: false, message: MSG_PIN_TAKEN };
     var token = newToken();
     Repo.append('会員', {
-      会員ID: Repo.nextId('会員'), 表示名: v.name, 暗証番号ハッシュ: hashPin(body.pin), トークン: token,
+      会員ID: Repo.nextId('会員'), 表示名: v.name, 暗証番号ハッシュ: hash, トークン: token,
       区分: '一般', 管理者: false, 状態: '有効', 残り回数: 0, 入会日: '', 承認日時: formatDateTime(new Date()), ログイン失敗: 0, 備考: '登録 ' + formatDateTime(new Date()),
     });
     return { ok: true, token: token, status: '有効', message: '登録しました' };
@@ -81,13 +92,15 @@ function actionLogin(members, body) {
     Repo.update('会員', m._row, { ログイン失敗: (Number(m.ログイン失敗) || 0) + 1 });
     return { ok: false, message: MSG_BAD_LOGIN };
   }
+  var common = isCommonPin(members, m);
+  if (common && isAdminRole(m)) return { ok: false, message: MSG_ADMIN_COMMON };
   var token = m.トークン || newToken();
   var patch = { トークン: token, ログイン失敗: 0 };
   // 休会（1年以上来ていない人）は、ログインして戻ってきた時点で自動的に有効へ
   var status = m.状態;
   if (status === '休会') { patch.状態 = '有効'; patch.備考 = (m.備考 || '') + ' / 復帰 ' + formatDate(new Date()); status = '有効'; }
   Repo.update('会員', m._row, patch);
-  return { ok: true, token: token, status: status };
+  return { ok: true, token: token, status: status, mustChangePin: common };
 }
 
 // 本人のスマホから5回券を買う（残り0のときだけ）。購入は「未収」で記録し、管理者が入金を確認したら消し込む
@@ -114,12 +127,17 @@ function actionBuyTicket(me) {
   }
 }
 
-function actionChangePin(me, body) {
+// 番号を変えたら合鍵（トークン）も作り直す。前の合鍵を持っている別の端末（なりすました人を含む）はログアウトになる
+function actionChangePin(members, me, body) {
   var p = validatePin(body.newPin);
   if (!p.ok) return p;
   if (me.暗証番号ハッシュ !== hashPin(body.currentPin)) return { ok: false, message: '現在の暗証番号が違います' };
-  Repo.update('会員', me._row, { 暗証番号ハッシュ: hashPin(body.newPin) });
-  return { ok: true, message: '暗証番号を変更しました' };
+  var newHash = hashPin(body.newPin);
+  if (newHash === me.暗証番号ハッシュ) return { ok: false, message: '今と同じ番号です。別の4桁にしてください' };
+  if (isTakenPin(members, newHash, me.会員ID)) return { ok: false, message: MSG_PIN_TAKEN };
+  var token = newToken();
+  Repo.update('会員', me._row, { 暗証番号ハッシュ: newHash, トークン: token, ログイン失敗: 0 });
+  return { ok: true, token: token, message: '暗証番号を変更しました。ほかの端末はログアウトになりました' };
 }
 
 // ---------- 会員向け ----------
@@ -581,6 +599,7 @@ function adminResetPin(body, admin) {
   var members = Repo.readAll('会員');
   var m = members.filter(function (x) { return x.会員ID === body.会員ID; })[0];
   if (!m) return { ok: false, message: '会員が見つかりません' };
+  if (isTakenPin(members, hashPin(body.pin), m.会員ID)) return { ok: false, message: 'その番号はほかの人と重なっていて使えません（最初に配った番号も不可）。別の4桁にしてください' };
   Repo.update('会員', m._row, { 暗証番号ハッシュ: hashPin(body.pin), トークン: newToken(), ログイン失敗: 0,
     備考: (m.備考 || '') + ' / ' + formatDate(new Date()) + ' 番号リセット by ' + admin.会員ID });
   return { ok: true, message: m.表示名 + ' の暗証番号をリセットしました。本人に新しい番号を伝えてください' };

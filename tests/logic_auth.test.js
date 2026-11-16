@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeName, validateName, validatePin, findByName, isLocked, isTrueFlag, isAdminRole } = require('../gas/logic_auth.js');
+const { normalizeName, validateName, validatePin, findByName, isLocked, isTrueFlag, isAdminRole, countSameHash, isCommonPin, isTakenPin } = require('../gas/logic_auth.js');
 
 test('normalizeName は前後空白・全角空白・連続空白を整える', () => {
   assert.equal(normalizeName('  のぶさん　（最強生物） '), 'のぶさん （最強生物）');
@@ -66,4 +66,31 @@ test('管理画面に入れる人：管理者の印か、部長・副部長・�
   assert.equal(isAdminRole({ 区分: '一般', 管理者: 'TRUE' }), true);
   assert.equal(isAdminRole({ 区分: '一般', 管理者: true }), true);
   assert.equal(isAdminRole(null), false);
+});
+
+// 共通の暗証番号（取り込み時に全員へ同じ番号）の見分け（2026-11-17 セキュリティ点検）
+const pinMembers = [
+  { 会員ID: 'M1', 暗証番号ハッシュ: 'common', 状態: '有効' },
+  { 会員ID: 'M2', 暗証番号ハッシュ: 'common', 状態: '有効' },
+  { 会員ID: 'M3', 暗証番号ハッシュ: 'common', 状態: '休会' },
+  { 会員ID: 'M4', 暗証番号ハッシュ: 'own4', 状態: '有効' },
+  { 会員ID: 'M5', 暗証番号ハッシュ: 'pair', 状態: '有効' },
+  { 会員ID: 'M6', 暗証番号ハッシュ: 'pair', 状態: '有効' },
+  { 会員ID: 'M7', 暗証番号ハッシュ: 'common', 状態: '退会' },
+];
+
+test('isCommonPin は同じハッシュを3人以上が使っていれば共通とみなす（退会は数えない）', () => {
+  assert.equal(isCommonPin(pinMembers, pinMembers[0]), true);
+  assert.equal(isCommonPin(pinMembers, pinMembers[3]), false);
+  assert.equal(isCommonPin(pinMembers, pinMembers[4]), false); // 2人の偶然の一致は共通ではない
+  assert.equal(isCommonPin(pinMembers, { 会員ID: 'X', 暗証番号ハッシュ: '' }), false);
+  assert.equal(countSameHash(pinMembers, 'common'), 3);
+});
+
+test('isTakenPin はほかの人と重なって共通になる番号を拒む（本人は数えない）', () => {
+  assert.equal(isTakenPin(pinMembers, 'common', 'M4'), true);
+  assert.equal(isTakenPin(pinMembers, 'pair', 'M4'), true);  // 3人目になると共通になる
+  assert.equal(isTakenPin(pinMembers, 'pair', 'M5'), false); // 本人を除けば1人だけ
+  assert.equal(isTakenPin(pinMembers, 'own4', 'M1'), false);
+  assert.equal(isTakenPin(pinMembers, 'brandnew'), false);
 });

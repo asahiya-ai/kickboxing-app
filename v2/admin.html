@@ -723,7 +723,7 @@ $('todaySess').onchange = () => { todaySessId = $('todaySess').value; loadToday(
 (async () => {
   if (!KickApi.token()) { $('gate').innerHTML = '先に <a href="checkin.html">受付画面</a> でログインしてください'; return; }
   const me = await KickApi.call('me');
-  if (!me.ok || !me.isAdmin) { $('gate').textContent = me.needLogin ? '先に受付画面でログインしてください' : '管理者だけが開けます'; return; }
+  if (!me.ok || !me.isAdmin) { $('gate').textContent = me.needLogin ? (me.message && me.message !== 'ログインしてください' ? me.message : '先に受付画面でログインしてください') : me.mustChangePin ? '先に受付画面で暗証番号を変えてください' : '管理者だけが開けます'; return; }
   $('gate').classList.add('hidden'); $('app').classList.remove('hidden');
   loadToday();
 })();
