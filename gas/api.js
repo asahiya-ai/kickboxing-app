@@ -18,7 +18,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-11-17-1' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-11-17-2' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -146,6 +146,8 @@ function actionMe(me) {
   var mine = ctx.attendances.filter(function (a) { return a.会員ID === me.会員ID && a.状態 === '有効'; });
   var byId = {};
   ctx.sessions.forEach(function (s) { byId[s.開催ID] = s; });
+  var kengoInfo = kengoView(null, null, ctx.sessions, me.会員ID);
+  var recent = recentRate(ctx.sessions, ctx.attendances, me.会員ID, me.入会日, ctx.todayStr, 2);
   var history = mine.map(function (a) {
     var s = byId[a.開催ID] || {};
     return { 日付: s.日付 || String(a.日時).slice(0, 10), 通算番号: s.通算番号 || '', 種別: a.支払い種別 };
@@ -160,7 +162,8 @@ function actionMe(me) {
     remaining: Number(me.残り回数) || 0,
     joinDate: me.入会日 || '',
     stats: stats,
-    recent: recentRate(ctx.sessions, ctx.attendances, me.会員ID, me.入会日, ctx.todayStr, 2),
+    recent: recent,
+    comment: memberComment(me, mine, ctx, byId, recent, kengoInfo.points),
     days: daysSince(me.入会日, ctx.todayStr),
     celebrations: celebrations(me.入会日, ctx.todayStr, mine.map(function (a) { var s = byId[a.開催ID] || {}; return s.日付 || String(a.日時).slice(0, 10); }).sort()),
     attendedToday: ctx.todays.some(function (a) { return a.会員ID === me.会員ID; }),
@@ -169,12 +172,54 @@ function actionMe(me) {
     unpaid: unpaidAmount(me.会員ID),
     ticketPrice: (function () { var p = Repo.prices(); var c = me.区分 === '運営会員' ? 'ticket5_staff' : 'ticket5'; return p[c] ? p[c].金額 : null; })(),
     today: ctx.session ? { 開催ID: ctx.session.開催ID, 通算番号: ctx.session.通算番号, 時間帯: ctx.session.時間帯, free: isFreeSession(ctx.session) ? FREE_SESSION.種別 : '',
-      count: me.状態 === '有効' ? ctx.todays.length : 0, names: me.状態 === '有効' ? ctx.todays.map(function (a) { return a.表示名; }) : [] } : null,
+      count: me.状態 === '有効' ? ctx.todays.length : 0, names: me.状態 === '有効' ? ctx.todays.map(function (a) { return a.表示名; }) : [],
+      // 名前の横の数字（みんなが見る画面なので、通算とチャンバラ優勝だけ。出席率は出さない）
+      people: me.状態 === '有効' ? attendeeNumbers(ctx.todays, ctx.attendances, ctx.sessions, ctx.todayStr, false) : [] } : null,
     next: nextSessionAfter(ctx.sessions, ctx.todayStr),
     calendar: calendarSessions(ctx.sessions, ctx.todayStr),
-    kengo: kengoView(null, null, ctx.sessions, me.会員ID),
+    kengo: kengoInfo,
     todayStr: ctx.todayStr,
   };
+}
+
+// ---------- 会員画面の一言（文と判定は logic_comment.js） ----------
+
+function memberComment(me, mine, ctx, sessionsById, recent, kengoPoints) {
+  var attendedIds = {};
+  var dates = [];
+  mine.forEach(function (a) {
+    attendedIds[a.開催ID] = true;
+    var s = sessionsById[a.開催ID] || {};
+    var d = String(s.日付 || String(a.日時).slice(0, 10));
+    if (d <= ctx.todayStr) dates.push(d);
+  });
+  dates.sort();
+  return pickComment({
+    exempt: isExempt(me), total: mine.length, recent: recent ? recent.rate : null,
+    streak: attendanceStreak(ctx.sessions, attendedIds, ctx.todayStr), lastDate: dates.length ? dates[dates.length - 1] : '',
+    kengo: kengoPoints, todayStr: ctx.todayStr, memberId: me.会員ID,
+  });
+}
+
+// 出席者ごとの数字：通算（その日まで）・出席率（入会からその日まで）・チャンバラ優勝の数。
+// withRate=false なら出席率を出さない（会員画面）
+function attendeeNumbers(attendees, attendances, sessions, asOf, withRate) {
+  var sessDate = {};
+  sessions.forEach(function (s) { sessDate[s.開催ID] = s.日付; });
+  var members = {};
+  Repo.readAll('会員').forEach(function (m) { members[m.会員ID] = m; });
+  var kp = {};
+  kengoValid(Repo.readAll('剣豪')).forEach(function (g) { if (String(sessDate[g.開催ID] || '') <= asOf) kp[g.会員ID] = (kp[g.会員ID] || 0) + 1; });
+  return attendees.map(function (a) {
+    var mine = attendances.filter(function (x) { return x.会員ID === a.会員ID && x.状態 === '有効' && String(sessDate[x.開催ID] || String(x.日時).slice(0, 10)) <= asOf; });
+    var o = { 会員ID: a.会員ID, 表示名: a.表示名, total: mine.length, kengo: kp[a.会員ID] || 0 };
+    if (withRate) {
+      var m = members[a.会員ID] || {};
+      o.rate = memberStats(sessions, attendances, a.会員ID, m.入会日, asOf).rate;
+      o.exempt = isExempt(m);
+    }
+    return o;
+  });
 }
 
 // ---------- スポーツチャンバラ剣豪（計算は logic_kengo.js） ----------
@@ -395,6 +440,7 @@ function adminToday(body) {
         celebrate: celebrations(m.入会日, asOf, mine).map(function (c) { return c.label; }) };
     }),
     kengo: kengoView(session, memberById, ctx.sessions, null),
+    numbers: attendeeNumbers(attendees, ctx.attendances, ctx.sessions, asOf, true),
     cashTotal: attendees.reduce(function (sum, a) { return sum + (Number(a.金額) || 0); }, 0),
     todayUnpaid: todayUnpaidTotal(attendees, purchases),
     unpaidTotal: unpaidTotal,
@@ -672,6 +718,13 @@ function adminPurchase(body, admin) {
     if (!prices[code]) return { ok: false, message: '料金表の設定が足りません' };
     var paid = body.paid !== false;
     var nowStr = formatDateTime(new Date());
+    // 同じ日にもう券を買っている（本人のスマホ／別の管理者）なら、いったん止めて確かめる（二重付与が4回あった）
+    var same = Repo.readAll('購入').filter(function (p) { return p.会員ID === m.会員ID && String(p.日時).slice(0, 10) === nowStr.slice(0, 10); });
+    if (same.length && !body.force) {
+      var last = same[same.length - 1];
+      return { ok: false, needConfirm: true, message: m.表示名 + ' は今日すでに5回券を買っています（' + String(last.日時).slice(11, 16) + '・'
+        + (last.記録者 === m.会員ID ? '本人のスマホ' : '管理画面') + '・' + last.入金 + '）。もう1枚付与すると二重になります。本当にもう1枚付与しますか？' };
+    }
     Repo.append('購入', {
       購入ID: Repo.nextId('購入'), 日時: nowStr, 会員ID: m.会員ID, 種別: prices[code].表示名, 付与回数: prices[code].付与回数,
       金額: prices[code].金額, 入金: paid ? '入金済み' : '未収', 入金日: paid ? nowStr.slice(0, 10) : '', 記録者: admin.会員ID, 備考: '管理画面から',

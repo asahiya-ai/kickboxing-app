@@ -173,11 +173,13 @@ test('全員無料の回：残り0でも選択肢を出さずに無料で記録'
   assert.equal(r.remainingAfter, 0);
 });
 
-test('全員無料の回：初めての人は入会日を入れない（次に来たときが初回のまま）', () => {
+test('全員無料の回：初めての人はその日が入会日（無料の回が初回）。入会済みの人は動かさない', () => {
   const r = decideCheckin({ member: member({ 入会日: '' }), session: freeSession, alreadyAttended: false, prices, choice: null });
   assert.equal(r.ok, true);
   assert.equal(r.attendance.支払い種別, '100回記念');
-  assert.equal(r.setJoinDate, false);
+  assert.equal(r.setJoinDate, true);
+  assert.equal(r.purchase, null);
+  assert.equal(decideCheckin({ member: member({ 入会日: '2026-09-01' }), session: freeSession, alreadyAttended: false, prices, choice: null }).setJoinDate, false);
 });
 
 test('全員無料の回：部長・事務長も同じ種別にそろえる', () => {

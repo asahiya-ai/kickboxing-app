@@ -10,7 +10,8 @@ var KUBUN_LIST = ['一般', '運営会員', '事務長', '副事務長', '部長
 var KUBUN_EXEMPT = ['免除', '部長', '副部長'];
 var KUBUN_JIMU = ['事務長', '副事務長'];
 
-// 全員無料の回（2026-11-07 第100回記念だけ）。出席は記録するが、お金も券も入会日も動かさない
+// 全員無料の回（2026-11-07 第100回記念だけ）。出席は記録するが、お金も券も動かさない。
+// 初めて来た人は、その日を入会日にする（2026-11-16 耕平さん：無料の回が初回。次からは通常の参加）
 var FREE_SESSION = { 日付: '2026-11-07', 種別: '100回記念' };
 
 function isFreeSession(session) {
@@ -48,7 +49,7 @@ function decideCheckin(input) {
   }
 
   if (isFreeSession(input.session)) {
-    return { ok: true, purchase: null, setJoinDate: false, attendance: { 支払い種別: FREE_SESSION.種別, 金額: 0, 消化: false }, remainingAfter: remaining };
+    return { ok: true, purchase: null, setJoinDate: isFirst, attendance: { 支払い種別: FREE_SESSION.種別, 金額: 0, 消化: false }, remainingAfter: remaining };
   }
 
   var p = input.prices || {};

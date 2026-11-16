@@ -66,9 +66,9 @@ function _consumed(a) {
 function planAdminAttendance(input) {
   var k = _kubun();
   var m = input.member, s = input.session, ex = input.existing || null, type = String(input.type || '');
-  // 全員無料の回に来ただけでは「初めて来た」に数えない（入会日も入れていないので、初回無料はその次に使える）
+  // 全員無料の回に来たのも「初めて来た」に数える（2026-11-16〜。その日が入会日。初回無料はもう使えない）
   var freeType = k.FREE_SESSION.種別;
-  var others = (input.others || []).filter(function (o) { return o.支払い種別 !== freeType; });
+  var others = input.others || [];
   if (!m) return { ok: false, message: '会員が見つかりません' };
   if (!s) return { ok: false, message: '練習の回を選んでください' };
   if (s.状態 === '中止') return { ok: false, message: '中止の回には記録できません' };
@@ -114,7 +114,7 @@ function planAdminAttendance(input) {
     amount = Number(price.金額) || 0;
   }
   // 入会日＝初めて出席した日。空か、記録する回より後なら、その回の日付にする
-  var joinDate = !isFree && (!m.入会日 || String(m.入会日) > String(s.日付)) ? String(s.日付) : null;
+  var joinDate = !m.入会日 || String(m.入会日) > String(s.日付) ? String(s.日付) : null;
   return { ok: true, mode: ex ? 'change' : 'add', attendance: { 支払い種別: type, 金額: amount, 消化: use === 1 }, remainingAfter: after, joinDate: joinDate };
 }
 

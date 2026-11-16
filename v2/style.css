@@ -162,3 +162,20 @@ tr.s-today td { background: #fff8e1; }
 .kengo-me b { font-size: 30px; color: var(--main); margin: 0 4px; }
 .kengo-top li.me { font-weight: 800; color: var(--navy); }
 .kengo-top .rk { display: inline-block; min-width: 2.6em; color: var(--muted); }
+/* ミヤからひとこと */
+.mya-comment { display: flex; gap: 12px; align-items: flex-start; border: 2px solid var(--yellow); background: #fffbea; }
+.mya-face { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; background: #fff; box-shadow: 0 0 0 2px var(--yellow); }
+.mya-body { min-width: 0; flex: 1; }
+.mya-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: var(--navy); font-size: 15px; }
+.mya-facts { color: var(--muted); font-size: 12px; }
+.mya-text { white-space: pre-line; font-size: 16px; line-height: 1.7; margin-top: 4px; overflow-wrap: anywhere; }
+/* 出席者の札（通算・出席率・チャンバラ優勝） */
+.list li.att-row { display: block; }
+.att-name { font-size: 16px; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.chip { display: inline-block; font-size: 12px; font-weight: 700; line-height: 1.6; border-radius: 999px; padding: 0 8px; white-space: nowrap; }
+.chip.total { background: #e8eefb; color: var(--navy); }
+.chip.rate { background: #e6f4ea; color: #1e6b34; }
+.chip.kengo { background: #fff3c4; color: #7a5300; }
+.chip.new { background: #fde8e6; color: #a52a21; }
+td .chips { margin-top: 3px; }

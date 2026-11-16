@@ -171,6 +171,23 @@ tr.s-today td { background: #fff8e1; }
 .kengo-me b { font-size: 30px; color: var(--main); margin: 0 4px; }
 .kengo-top li.me { font-weight: 800; color: var(--navy); }
 .kengo-top .rk { display: inline-block; min-width: 2.6em; color: var(--muted); }
+/* ミヤからひとこと */
+.mya-comment { display: flex; gap: 12px; align-items: flex-start; border: 2px solid var(--yellow); background: #fffbea; }
+.mya-face { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; background: #fff; box-shadow: 0 0 0 2px var(--yellow); }
+.mya-body { min-width: 0; flex: 1; }
+.mya-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: var(--navy); font-size: 15px; }
+.mya-facts { color: var(--muted); font-size: 12px; }
+.mya-text { white-space: pre-line; font-size: 16px; line-height: 1.7; margin-top: 4px; overflow-wrap: anywhere; }
+/* 出席者の札（通算・出席率・チャンバラ優勝） */
+.list li.att-row { display: block; }
+.att-name { font-size: 16px; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.chip { display: inline-block; font-size: 12px; font-weight: 700; line-height: 1.6; border-radius: 999px; padding: 0 8px; white-space: nowrap; }
+.chip.total { background: #e8eefb; color: var(--navy); }
+.chip.rate { background: #e6f4ea; color: #1e6b34; }
+.chip.kengo { background: #fff3c4; color: #7a5300; }
+.chip.new { background: #fde8e6; color: #a52a21; }
+td .chips { margin-top: 3px; }
 </style>
 </head>
 <body>
@@ -284,11 +301,22 @@ async function loadToday() {
   if (s) $('todaySess').value = s.開催ID;
   $('todayHead').textContent = s ? (s.通算番号 ? '第' + s.通算番号 + '回 ' : '') + dayLabel(s.日付, r.todayStr) + (s.today ? '・今日' : '') + '（' + slotLabel(s.時間帯) + '）' + (s.会場 || '') + '　' + r.list.length + '人' : '開催がありません';
   const kg = r.kengo || { top: [] };
-  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(attTime(a, s)) + '</td><td>' + esc(a.表示名) + (kg.winner && kg.winner === a.会員ID ? ' <span class="kengo-mark">⚔️優勝</span>' : '') + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + ((a.celebrate || []).length ? '<div style="color:#b8860b;font-size:12px;font-weight:700">🎉 ' + esc(a.celebrate.join('・')) + '</div>' : '') + '</td><td>' + esc(a.支払い種別) + (/^代打ち/.test(a.記録方法 || '') ? '<div class="att-by">管理者が記録</div>' : '') + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">' + (s && s.today ? 'まだ出席がありません' : 'この回の出席はありません') + '</td></tr>';
+  const num = {};
+  (r.numbers || []).forEach(n => { num[n.会員ID] = n; });
+  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(attTime(a, s)) + '</td><td>' + esc(a.表示名) + (kg.winner && kg.winner === a.会員ID ? ' <span class="kengo-mark">⚔️優勝</span>' : '') + numChips(num[a.会員ID]) + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + ((a.celebrate || []).length ? '<div style="color:#b8860b;font-size:12px;font-weight:700">🎉 ' + esc(a.celebrate.join('・')) + '</div>' : '') + '</td><td>' + esc(a.支払い種別) + (/^代打ち/.test(a.記録方法 || '') ? '<div class="att-by">管理者が記録</div>' : '') + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">' + (s && s.today ? 'まだ出席がありません' : 'この回の出席はありません') + '</td></tr>';
   renderKengoAdmin(r, kg);
   $('cashTotal').textContent = r.cashTotal.toLocaleString();
   $('todayUnpaid').textContent = (r.todayUnpaid || 0).toLocaleString();
   $('unpaidTotal').textContent = (r.unpaidTotal || 0).toLocaleString();
+}
+
+// 名前の下の札：通算（その回まで）・出席率（入会からその回まで。部長・免除は出さない）・チャンバラ優勝
+function numChips(n) {
+  if (!n) return '';
+  return '<div class="chips">' + '<span class="chip total">通算 ' + n.total + '回</span>'
+    + (!n.exempt && n.rate !== null && n.rate !== undefined && n.total > 1 ? '<span class="chip rate">出席率 ' + n.rate + '%</span>' : '')
+    + (n.total === 1 ? '<span class="chip new">はじめて</span>' : '')
+    + (n.kengo ? '<span class="chip kengo">剣豪 ⚔️' + n.kengo + '</span>' : '') + '</div>';
 }
 
 // スポーツチャンバラ：その回の出席者から優勝者を1人選ぶ（選び直すと付け替え、「優勝なし」で取消）
@@ -586,7 +614,11 @@ function renderMembers() {
   $('memberRows').querySelectorAll('[data-grant]').forEach(b => b.onclick = async () => {
     const paid = confirm(b.dataset.name + ' に5回券を付与します。代金を受け取り済みなら「OK」、後払い（未収）なら「キャンセル」');
     if (!paid && !confirm('未収（後払い）として付与しますか？')) return;
-    const rr = await KickApi.call('admin.purchase', { 会員ID: b.dataset.grant, paid });
+    let rr = await KickApi.call('admin.purchase', { 会員ID: b.dataset.grant, paid });
+    if (!rr.ok && rr.needConfirm) {
+      if (!confirm(rr.message)) { msg('付与をやめました（券もお金の記録も変わっていません）'); return; }
+      rr = await KickApi.call('admin.purchase', { 会員ID: b.dataset.grant, paid, force: true });
+    }
     msg(rr.message, !rr.ok); loadMembers();
   });
   $('memberRows').querySelectorAll('[data-remain]').forEach(b => b.onclick = async () => {

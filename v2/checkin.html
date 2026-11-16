@@ -171,6 +171,23 @@ tr.s-today td { background: #fff8e1; }
 .kengo-me b { font-size: 30px; color: var(--main); margin: 0 4px; }
 .kengo-top li.me { font-weight: 800; color: var(--navy); }
 .kengo-top .rk { display: inline-block; min-width: 2.6em; color: var(--muted); }
+/* ミヤからひとこと */
+.mya-comment { display: flex; gap: 12px; align-items: flex-start; border: 2px solid var(--yellow); background: #fffbea; }
+.mya-face { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; background: #fff; box-shadow: 0 0 0 2px var(--yellow); }
+.mya-body { min-width: 0; flex: 1; }
+.mya-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: var(--navy); font-size: 15px; }
+.mya-facts { color: var(--muted); font-size: 12px; }
+.mya-text { white-space: pre-line; font-size: 16px; line-height: 1.7; margin-top: 4px; overflow-wrap: anywhere; }
+/* 出席者の札（通算・出席率・チャンバラ優勝） */
+.list li.att-row { display: block; }
+.att-name { font-size: 16px; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.chip { display: inline-block; font-size: 12px; font-weight: 700; line-height: 1.6; border-radius: 999px; padding: 0 8px; white-space: nowrap; }
+.chip.total { background: #e8eefb; color: var(--navy); }
+.chip.rate { background: #e6f4ea; color: #1e6b34; }
+.chip.kengo { background: #fff3c4; color: #7a5300; }
+.chip.new { background: #fde8e6; color: #a52a21; }
+td .chips { margin-top: 3px; }
 </style>
 </head>
 <body>
@@ -229,6 +246,13 @@ tr.s-today td { background: #fff8e1; }
       </div>
       <div id="choices" class="hidden"></div>
       <div id="doneLine" class="hidden"></div>
+    </div>
+    <div class="card mya-comment hidden" id="commentCard">
+      <img src="img/logo.png" alt="" class="mya-face">
+      <div class="mya-body">
+        <div class="mya-head"><b>ミヤからひとこと</b><span class="mya-facts" id="commentFacts"></span></div>
+        <div class="mya-text" id="commentText"></div>
+      </div>
     </div>
     <div class="card">
       <h2 id="myPageTitle">マイページ</h2>
@@ -357,6 +381,21 @@ function renderCalendar(r) {
   $('calendarCard').innerHTML = html + '<div class="cal-legend"><div class="lg lg-day">昼 ＝ 昼の練習 <b>10:00〜12:00</b></div><div class="lg lg-night">夜 ＝ 夜の練習 <b>19:00〜21:00</b></div><div class="lg lg-off">休 ＝ 中止</div></div>';
 }
 
+// ミヤからひとこと（判定と文はサーバー側 logic_comment.js。免除の人には来ない）
+function renderComment(c) {
+  $('commentCard').classList.toggle('hidden', !c);
+  if (!c) return;
+  $('commentFacts').textContent = c.facts || '';
+  $('commentText').textContent = c.text;
+}
+
+// 今日の出席：名前の下に「通算◯回」「剣豪 ⚔️◯」の札（出席率はみんなが見る画面なので出さない）
+function attendeeRows(people) {
+  return people.map(p => '<li class="att-row"><div class="att-name">' + esc(p.表示名) + (p.total === 1 ? ' <span class="chip new">はじめて</span>' : '') + '</div>'
+    + (p.total ? '<div class="chips"><span class="chip total">通算 ' + p.total + '回</span>' + (p.kengo ? '<span class="chip kengo">剣豪 ⚔️' + p.kengo + '</span>' : '') + '</div>' : '')
+    + '</li>').join('');
+}
+
 // スポーツチャンバラ剣豪：本人のポイントと、上位5人（まだ誰も優勝していなければ出さない）
 function renderKengo(k) {
   const has = !!k && (k.top || []).length > 0;
@@ -375,6 +414,7 @@ function render(r) {
   $('unpaidBanner').textContent = r.unpaid > 0 ? '券代 ' + r.unpaid.toLocaleString() + ' 円が未払いです。管理者にお支払いください' : '';
   renderCalendar(r);
   renderKengo(r.kengo);
+  renderComment(r.comment);
   $('myName').textContent = r.displayName;
   $('totalCount').textContent = r.stats.total;
   $('joinLine').textContent = r.joinDate ? r.joinDate.replace(/-0?/g, '/').replace(/^(\d+)\//, '$1/') + ' 入会' + (r.days ? '（' + r.days.toLocaleString() + '日目）' : '') : '';
@@ -420,7 +460,7 @@ function render(r) {
   if (r.today) {
     $('todayLabel').textContent = '今日は 第' + r.today.通算番号 + '回（' + slotLabel(r.today.時間帯) + '）';
     $('todayCount').textContent = r.today.count;
-    $('todayNames').innerHTML = r.today.names.map(n => '<li>' + esc(n) + '</li>').join('');
+    $('todayNames').innerHTML = attendeeRows(r.today.people && r.today.people.length ? r.today.people : r.today.names.map(n => ({ 表示名: n })));
     $('actionCard').classList.remove('hidden');
     $('todayCard').classList.remove('hidden');
     todayInfo = r.today;
@@ -548,9 +588,10 @@ if (demoMode === '1' || demoMode === '2' || demoMode === '3' || demoMode === '4'
       : { size: 5, remaining: 2, used: [ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26'] },
     history: [{ 日付: ym(m) + '-26', 通算番号: 94, 種別: '券' }, { 日付: ym(m) + '-12', 通算番号: 92, 種別: '券' }, { 日付: ym(m - 1 || 12) + '-22', 通算番号: 90, 種別: '券' }],
     unpaid: full ? 3980 : 0, ticketPrice: 3980, days: 981,
+    comment: { category: 'high', facts: '直近2か月 60%・3回連続・⚔️1', text: '連続参加素晴らしいですね！💪\n連続で参加すると、体力も付いてくるのでその調子です！🔥' },
     kengo: { points: 1, rank: 2, top: [{ 表示名: 'ゆかりさん', points: 2, rank: 1, me: false }, { 表示名: 'デモ太郎', points: 1, rank: 2, me: true }, { 表示名: '空手のジョーさん', points: 1, rank: 2, me: false }] },
     celebrations: dayOf ? [{ type: 'anniversary', years: 2, label: '入会2周年おめでとう！' }] : (full ? [{ type: 'milestone', count: 30, label: '通算30回達成！' }] : []),
-    today: dayOf ? { 開催ID: 'KDEMO', 通算番号: free100 ? 100 : 94, 時間帯: '昼', free: free100 ? '100回記念' : '', count: 3, names: ['ミヤさん', 'ノブさん', '空手のジョーさん'] } : null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
+    today: dayOf ? { 開催ID: 'KDEMO', 通算番号: free100 ? 100 : 94, 時間帯: '昼', free: free100 ? '100回記念' : '', count: 3, names: ['ミヤさん', 'ノブさん', '空手のジョーさん'], people: [{ 表示名: 'ミヤさん', total: 98, kengo: 0 }, { 表示名: 'ノブさん', total: 64, kengo: 0 }, { 表示名: '空手のジョーさん', total: 21, kengo: 1 }, { 表示名: 'さや', total: 1, kengo: 0 }] } : null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
     calendar: [{ 日付: ym(m) + '-12', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-26', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-17', 時間帯: '昼', 状態: '中止' },
       { 日付: ym(m + 1) + '-07', 時間帯: '夜', 状態: '予定' }, { 日付: ym(m + 1) + '-10', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m + 1) + '-14', 時間帯: '夜', 状態: '予定' }],
   });

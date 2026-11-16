@@ -240,10 +240,11 @@ test('100回記念：券で記録された人を直すと券が1回戻る', () =
   assert.equal(r.remainingAfter, 3);
 });
 
-test('100回記念：初めての人の入会日は入れない', () => {
+test('100回記念：初めての人はその日が入会日。入会済みの人は動かさない', () => {
   const r = planAdminAttendance({ member: free100Member({ 入会日: '' }), session: free100, type: '100回記念', todayStr: '2026-11-07' });
   assert.equal(r.ok, true);
-  assert.equal(r.joinDate, null);
+  assert.equal(r.joinDate, '2026-11-07');
+  assert.equal(planAdminAttendance({ member: free100Member(), session: free100, type: '100回記念', todayStr: '2026-11-07' }).joinDate, null);
 });
 
 test('100回記念：ほかの回には記録できない', () => {
@@ -253,10 +254,18 @@ test('100回記念：ほかの回には記録できない', () => {
   assert.match(r.message, /100回記念/);
 });
 
-test('100回記念で来ただけの人は、次の回でも初回無料を付けられる', () => {
+test('100回記念で来た人は、次の回に初回無料を付けられない（無料の回が初回）', () => {
   const next = Object.assign({}, free100, { 開催ID: 'K101', 日付: '2026-11-16' });
   const r = planAdminAttendance({ member: free100Member({ 入会日: '' }), session: next, type: '入会', todayStr: '2026-11-16',
     others: [{ 日付: '2026-11-07', 支払い種別: '100回記念' }] });
+  assert.equal(r.ok, false);
+  assert.match(r.message, /初めて来た回/);
+});
+
+test('100回記念の回そのものを入会に直すのはできる（入会日はその日）', () => {
+  const r = planAdminAttendance({ member: free100Member({ 入会日: '2026-11-16', 残り回数: 4 }), session: free100, existing: { 支払い種別: '100回記念', 消化: false }, type: '入会', todayStr: '2026-11-16',
+    others: [{ 日付: '2026-11-16', 支払い種別: '券' }] });
   assert.equal(r.ok, true);
-  assert.equal(r.joinDate, '2026-11-16');
+  assert.equal(r.joinDate, '2026-11-07');
+  assert.equal(r.remainingAfter, 4);
 });
