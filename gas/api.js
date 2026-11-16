@@ -18,7 +18,7 @@ function doPost(e) {
 
 // GET は生存確認だけ（ブラウザで開いたとき用）
 function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-11-06-1' })).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, app: 'kick-checkin-v2', build: '2026-11-17-1' })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleRequest(body) {
@@ -172,8 +172,62 @@ function actionMe(me) {
       count: me.状態 === '有効' ? ctx.todays.length : 0, names: me.状態 === '有効' ? ctx.todays.map(function (a) { return a.表示名; }) : [] } : null,
     next: nextSessionAfter(ctx.sessions, ctx.todayStr),
     calendar: calendarSessions(ctx.sessions, ctx.todayStr),
+    kengo: kengoView(null, null, ctx.sessions, me.会員ID),
     todayStr: ctx.todayStr,
   };
+}
+
+// ---------- スポーツチャンバラ剣豪（計算は logic_kengo.js） ----------
+
+// 画面に出す剣豪の情報。session があればその回の優勝者、memberId があれば本人のポイントと順位
+function kengoView(session, membersById, sessions, memberId) {
+  var records = Repo.readAll('剣豪');
+  if (!membersById) {
+    membersById = {};
+    Repo.readAll('会員').forEach(function (m) { membersById[m.会員ID] = m; });
+  }
+  var sessionDate = {};
+  (sessions || []).forEach(function (s) { sessionDate[s.開催ID] = s.日付; });
+  var ranking = kengoRanking(records, membersById, sessionDate);
+  var out = { top: ranking.slice(0, KENGO_TOP).map(function (o) { return { 表示名: o.表示名, points: o.points, rank: o.rank, me: !!memberId && o.会員ID === memberId }; }) };
+  if (session) {
+    var w = kengoValid(records).filter(function (g) { return g.開催ID === session.開催ID; })[0];
+    out.winner = w ? w.会員ID : '';
+  }
+  if (memberId) {
+    out.points = kengoPoints(records, memberId);
+    var mine = ranking.filter(function (o) { return o.会員ID === memberId; })[0];
+    out.rank = mine ? mine.rank : null;
+  }
+  return out;
+}
+
+// 管理者がその回の優勝者を記録・付け替え・取消する。body: { 開催ID, 会員ID（空＝優勝なしに戻す） }
+function adminKengo(body, admin) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sessions = Repo.readAll('開催');
+    var s = sessions.filter(function (x) { return x.開催ID === String(body.開催ID || ''); })[0] || null;
+    var records = Repo.readAll('剣豪');
+    var plan = planKengo({ session: s, memberId: body.会員ID, current: records,
+      attendees: s ? Repo.readAll('出席').filter(function (a) { return a.開催ID === s.開催ID; }) : [], todayStr: formatDate(new Date()) });
+    if (!plan.ok) return plan;
+    var nowStr = formatDateTime(new Date());
+    if (plan.cancel) Repo.update('剣豪', plan.cancel._row, { 状態: '取消', '取消日時・取消者': nowStr + ' ' + admin.会員ID });
+    var m = null;
+    if (plan.add) {
+      m = Repo.readAll('会員').filter(function (x) { return x.会員ID === plan.add; })[0];
+      Repo.append('剣豪', { 剣豪ID: Repo.nextId('剣豪'), 日時: nowStr, 開催ID: s.開催ID, 会員ID: m.会員ID, 表示名: m.表示名, 記録者: admin.会員ID, 状態: '有効', '取消日時・取消者': '' });
+    }
+    var label = '第' + (s.通算番号 || '?') + '回(' + s.日付 + ')';
+    var message = plan.mode === 'cancel' ? label + '：優勝の記録を取り消しました（' + plan.cancel.表示名 + '）'
+      : label + '：⚔️ ' + m.表示名 + ' を優勝で記録しました（剣豪ポイント ' + kengoPoints(Repo.readAll('剣豪'), m.会員ID) + '）'
+        + (plan.mode === 'replace' ? '。' + plan.cancel.表示名 + ' の分は取り消しました' : '');
+    return { ok: true, message: message };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // 本人の未収合計
@@ -300,6 +354,7 @@ function handleAdmin(action, body, admin) {
     case 'admin.deleteMember': return adminDeleteMember(body, admin);
     case 'admin.attendance': return adminAttendance(body, admin);
     case 'admin.checkinFor': return adminCheckinFor(body, admin);
+    case 'admin.kengo': return adminKengo(body, admin);
     default: return { ok: false, message: '不明な操作です' };
   }
 }
@@ -336,9 +391,10 @@ function adminToday(body) {
       var mine = ctx.attendances.filter(function (x) { return x.会員ID === a.会員ID && x.状態 === '有効'; })
         .map(function (x) { var s = sessById[x.開催ID] || {}; return s.日付 || String(x.日時).slice(0, 10); })
         .filter(function (d) { return d <= asOf; }).sort();
-      return { 出席ID: a.出席ID, 日時: a.日時, 表示名: a.表示名, 支払い種別: a.支払い種別, 金額: a.金額, 記録方法: a.記録方法, unpaid: unpaidByMember[a.会員ID] || 0,
+      return { 出席ID: a.出席ID, 会員ID: a.会員ID, 日時: a.日時, 表示名: a.表示名, 支払い種別: a.支払い種別, 金額: a.金額, 記録方法: a.記録方法, unpaid: unpaidByMember[a.会員ID] || 0,
         celebrate: celebrations(m.入会日, asOf, mine).map(function (c) { return c.label; }) };
     }),
+    kengo: kengoView(session, memberById, ctx.sessions, null),
     cashTotal: attendees.reduce(function (sum, a) { return sum + (Number(a.金額) || 0); }, 0),
     todayUnpaid: todayUnpaidTotal(attendees, purchases),
     unpaidTotal: unpaidTotal,

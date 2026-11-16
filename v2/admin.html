@@ -161,6 +161,16 @@ tr.s-today td { background: #fff8e1; }
 #t-sessions th, #t-sessions td { white-space: nowrap; padding: 8px 2px; }
 #t-sessions td button { white-space: nowrap; padding: 4px 6px; font-size: 12px; }
 #t-sessions td .cnt-btn { min-width: 40px; padding: 5px 8px; font-size: 14px; }
+/* スポーツチャンバラ剣豪 */
+.kengo-admin { border: 2px solid var(--navy); border-radius: 10px; padding: 10px 12px; margin: 12px 0; }
+.kengo-admin .sub { margin-top: 8px; line-height: 1.6; }
+.kengo-mark { display: inline-block; background: var(--navy); color: #fff; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+.kengo-card { border: 2px solid var(--navy); }
+.kengo-card h2 { color: var(--navy); }
+.kengo-me { font-size: 15px; margin: 4px 0 8px; }
+.kengo-me b { font-size: 30px; color: var(--main); margin: 0 4px; }
+.kengo-top li.me { font-weight: 800; color: var(--navy); }
+.kengo-top .rk { display: inline-block; min-width: 2.6em; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -187,6 +197,12 @@ tr.s-today td { background: #fff8e1; }
       <select id="todaySess"></select>
       <div id="todayHead" class="sub" style="margin-top:10px"></div>
       <table><thead><tr><th>時刻</th><th>名前</th><th>種別</th><th>金額</th></tr></thead><tbody id="todayRows"></tbody></table>
+      <div id="kengoBox" class="kengo-admin hidden">
+        <b>⚔️ スポーツチャンバラ優勝（剣豪ポイント）</b>
+        <select id="kengoSel"></select>
+        <button class="btn sec sm" id="btnKengo">この人を優勝で記録</button>
+        <div class="sub" id="kengoTop"></div>
+      </div>
       <p><b>この回の受け取り合計（都度・体験）：<span id="cashTotal">0</span> 円</b></p>
       <p>この回に来た人の未収（今の時点）：<span id="todayUnpaid">0</span> 円<br><span class="sub">全体の未収（来ていない人・過去の分も含む）：<span id="unpaidTotal">0</span> 円</span></p>
       <button class="btn sec sm" id="btnTodayReload">更新</button>
@@ -267,11 +283,33 @@ async function loadToday() {
     + '</option>').join('') || '<option value="">（まだ開催がありません）</option>';
   if (s) $('todaySess').value = s.開催ID;
   $('todayHead').textContent = s ? (s.通算番号 ? '第' + s.通算番号 + '回 ' : '') + dayLabel(s.日付, r.todayStr) + (s.today ? '・今日' : '') + '（' + slotLabel(s.時間帯) + '）' + (s.会場 || '') + '　' + r.list.length + '人' : '開催がありません';
-  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(attTime(a, s)) + '</td><td>' + esc(a.表示名) + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + ((a.celebrate || []).length ? '<div style="color:#b8860b;font-size:12px;font-weight:700">🎉 ' + esc(a.celebrate.join('・')) + '</div>' : '') + '</td><td>' + esc(a.支払い種別) + (/^代打ち/.test(a.記録方法 || '') ? '<div class="att-by">管理者が記録</div>' : '') + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">' + (s && s.today ? 'まだ出席がありません' : 'この回の出席はありません') + '</td></tr>';
+  const kg = r.kengo || { top: [] };
+  $('todayRows').innerHTML = r.list.map(a => '<tr><td>' + esc(attTime(a, s)) + '</td><td>' + esc(a.表示名) + (kg.winner && kg.winner === a.会員ID ? ' <span class="kengo-mark">⚔️優勝</span>' : '') + (a.unpaid > 0 ? ' <span title="未収 ' + esc(a.unpaid) + '円">🔴</span>' : '') + ((a.celebrate || []).length ? '<div style="color:#b8860b;font-size:12px;font-weight:700">🎉 ' + esc(a.celebrate.join('・')) + '</div>' : '') + '</td><td>' + esc(a.支払い種別) + (/^代打ち/.test(a.記録方法 || '') ? '<div class="att-by">管理者が記録</div>' : '') + '</td><td>' + (Number(a.金額) || 0).toLocaleString() + '</td></tr>').join('') || '<tr><td colspan="4" class="sub">' + (s && s.today ? 'まだ出席がありません' : 'この回の出席はありません') + '</td></tr>';
+  renderKengoAdmin(r, kg);
   $('cashTotal').textContent = r.cashTotal.toLocaleString();
   $('todayUnpaid').textContent = (r.todayUnpaid || 0).toLocaleString();
   $('unpaidTotal').textContent = (r.unpaidTotal || 0).toLocaleString();
 }
+
+// スポーツチャンバラ：その回の出席者から優勝者を1人選ぶ（選び直すと付け替え、「優勝なし」で取消）
+function renderKengoAdmin(r, kg) {
+  const s = r.session;
+  $('kengoBox').classList.toggle('hidden', !s || !r.list.length);
+  if (!s) return;
+  $('kengoSel').innerHTML = '<option value="">（優勝なし）</option>' + r.list.map(a => '<option value="' + esc(a.会員ID) + '">' + esc(a.表示名) + '</option>').join('');
+  $('kengoSel').value = kg.winner || '';
+  $('kengoTop').innerHTML = kg.top.length ? '剣豪ランキング：' + kg.top.map(o => esc(o.rank + '位 ' + o.表示名 + ' ⚔️' + o.points)).join('　') : 'まだ優勝の記録はありません';
+}
+$('btnKengo').onclick = async () => {
+  const id = $('kengoSel').value;
+  const name = $('kengoSel').selectedOptions[0].textContent;
+  if (!confirm(id ? name + ' をこの回の優勝で記録します。よろしいですか？' : 'この回の優勝の記録を取り消します。よろしいですか？')) return;
+  $('btnKengo').disabled = true;
+  const rr = await KickApi.call('admin.kengo', { 開催ID: $('todaySess').value, 会員ID: id });
+  $('btnKengo').disabled = false;
+  msg(rr.message, !rr.ok);
+  if (rr.ok) loadToday();
+};
 
 // 出席した時刻。練習の日とは別の日に管理者が記録したものは「10/15記録」、旧アプリからの取り込みは「―」
 function attTime(a, s) {

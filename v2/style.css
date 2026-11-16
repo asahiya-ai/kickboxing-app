@@ -152,3 +152,13 @@ tr.s-today td { background: #fff8e1; }
 #t-sessions th, #t-sessions td { white-space: nowrap; padding: 8px 2px; }
 #t-sessions td button { white-space: nowrap; padding: 4px 6px; font-size: 12px; }
 #t-sessions td .cnt-btn { min-width: 40px; padding: 5px 8px; font-size: 14px; }
+/* スポーツチャンバラ剣豪 */
+.kengo-admin { border: 2px solid var(--navy); border-radius: 10px; padding: 10px 12px; margin: 12px 0; }
+.kengo-admin .sub { margin-top: 8px; line-height: 1.6; }
+.kengo-mark { display: inline-block; background: var(--navy); color: #fff; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+.kengo-card { border: 2px solid var(--navy); }
+.kengo-card h2 { color: var(--navy); }
+.kengo-me { font-size: 15px; margin: 4px 0 8px; }
+.kengo-me b { font-size: 30px; color: var(--main); margin: 0 4px; }
+.kengo-top li.me { font-weight: 800; color: var(--navy); }
+.kengo-top .rk { display: inline-block; min-width: 2.6em; color: var(--muted); }

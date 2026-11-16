@@ -8,9 +8,10 @@ var HEADERS = {
   '開催': ['開催ID', '通算番号', '日付', '時間帯', '会場', '状態', '出席人数'],
   '料金': ['種別コード', '表示名', '金額', '付与回数', '券を消化するか', '有効'],
   '設定': ['キー', '値'],
+  '剣豪': ['剣豪ID', '日時', '開催ID', '会員ID', '表示名', '記録者', '状態', '取消日時・取消者'],
 };
 
-var ID_PREFIX = { '会員': 'M', '出席': 'A', '購入': 'P', '開催': 'K' };
+var ID_PREFIX = { '会員': 'M', '出席': 'A', '購入': 'P', '開催': 'K', '剣豪': 'G' };
 
 var Repo = (function () {
   var _ss = null;
@@ -26,8 +27,19 @@ var Repo = (function () {
   function sheet(tab) {
     if (_sheets[tab]) return _sheets[tab];
     var sh = ss().getSheetByName(tab);
+    if (!sh && LAZY_TABS.indexOf(tab) >= 0) sh = createTab(tab);
     if (!sh) throw new Error('タブが無い: ' + tab);
     return (_sheets[tab] = sh);
+  }
+
+  // あとから足したタブ（剣豪）は、初めて使うときに見出しつきで作る（setupSheets と同じ形）
+  var LAZY_TABS = ['剣豪'];
+  function createTab(tab) {
+    var sh = ss().insertSheet(tab);
+    sh.getRange(1, 1, 1, HEADERS[tab].length).setValues([HEADERS[tab]]).setFontWeight('bold');
+    sh.getRange(2, 1, sh.getMaxRows() - 1, HEADERS[tab].length).setNumberFormat('@');
+    sh.setFrozenRows(1);
+    return sh;
   }
 
   function readAll(tab) {

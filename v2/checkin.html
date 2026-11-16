@@ -161,6 +161,16 @@ tr.s-today td { background: #fff8e1; }
 #t-sessions th, #t-sessions td { white-space: nowrap; padding: 8px 2px; }
 #t-sessions td button { white-space: nowrap; padding: 4px 6px; font-size: 12px; }
 #t-sessions td .cnt-btn { min-width: 40px; padding: 5px 8px; font-size: 14px; }
+/* スポーツチャンバラ剣豪 */
+.kengo-admin { border: 2px solid var(--navy); border-radius: 10px; padding: 10px 12px; margin: 12px 0; }
+.kengo-admin .sub { margin-top: 8px; line-height: 1.6; }
+.kengo-mark { display: inline-block; background: var(--navy); color: #fff; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+.kengo-card { border: 2px solid var(--navy); }
+.kengo-card h2 { color: var(--navy); }
+.kengo-me { font-size: 15px; margin: 4px 0 8px; }
+.kengo-me b { font-size: 30px; color: var(--main); margin: 0 4px; }
+.kengo-top li.me { font-weight: 800; color: var(--navy); }
+.kengo-top .rk { display: inline-block; min-width: 2.6em; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -241,6 +251,11 @@ tr.s-today td { background: #fff8e1; }
           <div class="sub" id="sinceLine"></div>
         </div>
       </div>
+    </div>
+    <div class="card kengo-card hidden" id="kengoCard">
+      <h2>⚔️ スポーツチャンバラ剣豪</h2>
+      <div class="kengo-me" id="kengoMe"></div>
+      <ul class="list kengo-top" id="kengoTop"></ul>
     </div>
     <details class="card" open>
       <summary><b>参加した日</b><span class="sub" id="historyCount"></span></summary>
@@ -342,12 +357,24 @@ function renderCalendar(r) {
   $('calendarCard').innerHTML = html + '<div class="cal-legend"><div class="lg lg-day">昼 ＝ 昼の練習 <b>10:00〜12:00</b></div><div class="lg lg-night">夜 ＝ 夜の練習 <b>19:00〜21:00</b></div><div class="lg lg-off">休 ＝ 中止</div></div>';
 }
 
+// スポーツチャンバラ剣豪：本人のポイントと、上位5人（まだ誰も優勝していなければ出さない）
+function renderKengo(k) {
+  const has = !!k && (k.top || []).length > 0;
+  $('kengoCard').classList.toggle('hidden', !has);
+  if (!has) return;
+  $('kengoMe').innerHTML = k.points > 0
+    ? 'あなたの剣豪ポイント<b>⚔️' + k.points + '</b>' + (k.rank ? '（' + k.rank + '位）' : '')
+    : '<span class="sub">練習のスポーツチャンバラで優勝すると、剣豪ポイント⚔️がたまります</span>';
+  $('kengoTop').innerHTML = k.top.map(o => '<li' + (o.me ? ' class="me"' : '') + '><span><span class="rk">' + o.rank + '位</span>' + esc(o.表示名) + '</span><span>⚔️' + o.points + '</span></li>').join('');
+}
+
 function render(r) {
   // 未収があるあいだは画面全体を赤くして気づかせる
   document.body.classList.toggle('unpaid', !r.exempt && r.unpaid > 0);
   $('unpaidBanner').classList.toggle('hidden', !(r.unpaid > 0));
   $('unpaidBanner').textContent = r.unpaid > 0 ? '券代 ' + r.unpaid.toLocaleString() + ' 円が未払いです。管理者にお支払いください' : '';
   renderCalendar(r);
+  renderKengo(r.kengo);
   $('myName').textContent = r.displayName;
   $('totalCount').textContent = r.stats.total;
   $('joinLine').textContent = r.joinDate ? r.joinDate.replace(/-0?/g, '/').replace(/^(\d+)\//, '$1/') + ' 入会' + (r.days ? '（' + r.days.toLocaleString() + '日目）' : '') : '';
@@ -521,6 +548,7 @@ if (demoMode === '1' || demoMode === '2' || demoMode === '3' || demoMode === '4'
       : { size: 5, remaining: 2, used: [ym(m - 1 || 12) + '-22', ym(m) + '-12', ym(m) + '-26'] },
     history: [{ 日付: ym(m) + '-26', 通算番号: 94, 種別: '券' }, { 日付: ym(m) + '-12', 通算番号: 92, 種別: '券' }, { 日付: ym(m - 1 || 12) + '-22', 通算番号: 90, 種別: '券' }],
     unpaid: full ? 3980 : 0, ticketPrice: 3980, days: 981,
+    kengo: { points: 1, rank: 2, top: [{ 表示名: 'ゆかりさん', points: 2, rank: 1, me: false }, { 表示名: 'デモ太郎', points: 1, rank: 2, me: true }, { 表示名: '空手のジョーさん', points: 1, rank: 2, me: false }] },
     celebrations: dayOf ? [{ type: 'anniversary', years: 2, label: '入会2周年おめでとう！' }] : (full ? [{ type: 'milestone', count: 30, label: '通算30回達成！' }] : []),
     today: dayOf ? { 開催ID: 'KDEMO', 通算番号: free100 ? 100 : 94, 時間帯: '昼', free: free100 ? '100回記念' : '', count: 3, names: ['ミヤさん', 'ノブさん', '空手のジョーさん'] } : null, next: { 日付: ym(m + 1) + '-07', 時間帯: '夜' },
     calendar: [{ 日付: ym(m) + '-12', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-26', 時間帯: '昼', 状態: '予定' }, { 日付: ym(m) + '-17', 時間帯: '昼', 状態: '中止' },
