@@ -20,5 +20,5 @@ function memberByToken(members, token) {
 }
 
 function isAdminMember(m) {
-  return !!m && isTrueFlag(m.管理者);
+  return isAdminRole(m); // logic_auth.js（管理者の印、または部長・副部長・事務長・副事務長）
 }

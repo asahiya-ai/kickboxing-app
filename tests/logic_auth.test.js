@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeName, validateName, validatePin, findByName, isLocked, isTrueFlag } = require('../gas/logic_auth.js');
+const { normalizeName, validateName, validatePin, findByName, isLocked, isTrueFlag, isAdminRole } = require('../gas/logic_auth.js');
 
 test('normalizeName は前後空白・全角空白・連続空白を整える', () => {
   assert.equal(normalizeName('  のぶさん　（最強生物） '), 'のぶさん （最強生物）');
@@ -58,4 +58,12 @@ test('isTrueFlag は true / TRUE / true（文字列）を真、それ以外を�
   assert.equal(isTrueFlag('FALSE'), false);
   assert.equal(isTrueFlag(''), false);
   assert.equal(isTrueFlag(undefined), false);
+});
+
+test('管理画面に入れる人：管理者の印か、部長・副部長・事務長・副事務長', () => {
+  for (const k of ['部長', '副部長', '事務長', '副事務長']) assert.equal(isAdminRole({ 区分: k, 管理者: false }), true, k);
+  for (const k of ['一般', '運営会員', '免除', '']) assert.equal(isAdminRole({ 区分: k, 管理者: false }), false, k);
+  assert.equal(isAdminRole({ 区分: '一般', 管理者: 'TRUE' }), true);
+  assert.equal(isAdminRole({ 区分: '一般', 管理者: true }), true);
+  assert.equal(isAdminRole(null), false);
 });

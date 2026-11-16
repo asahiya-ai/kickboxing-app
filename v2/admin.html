@@ -525,7 +525,7 @@ function kubunBoxHtml(m) {
   return '<div class="kubun-box"><select data-kubun-sel="' + esc(m.会員ID) + '">'
     + list.map(k => '<option' + (k === m.区分 ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select>'
     + '<button data-kubun="' + esc(m.会員ID) + '" data-name="' + esc(m.表示名) + '" data-now="' + esc(m.区分) + '">区分を変更</button></div>'
-    + '<div class="sub" style="font-size:12px">事務長・副事務長：その回で先に出席した1人だけ無料。部長・副部長・免除：いつも無料</div>';
+    + '<div class="sub" style="font-size:12px">事務長・副事務長：その回で先に出席した1人だけ無料。部長・副部長・免除：いつも無料。<b>部長・副部長・事務長・副事務長は管理画面にも入れます</b></div>';
 }
 
 // 総合の並びで「枠外」にする基準：直近2か月の参加率がこれ未満（未計算も枠外）
@@ -673,7 +673,12 @@ function renderMembers() {
   $('memberRows').querySelectorAll('[data-kubun]').forEach(b => b.onclick = async () => {
     const k = $('memberRows').querySelector('[data-kubun-sel="' + b.dataset.kubun + '"]').value;
     if (k === b.dataset.now) return msg('区分は「' + k + '」のままです', true);
-    if (!confirm(b.dataset.name + ' の区分を「' + b.dataset.now + '」→「' + k + '」に変えますか？')) return;
+    const ADMIN_KUBUN = ['部長', '副部長', '事務長', '副事務長'];
+    const note = ADMIN_KUBUN.includes(k) && !ADMIN_KUBUN.includes(b.dataset.now) ? '
+（この区分になると、管理画面にも入れるようになります）'
+      : !ADMIN_KUBUN.includes(k) && ADMIN_KUBUN.includes(b.dataset.now) ? '
+（この区分になると、管理者の印が無ければ管理画面に入れなくなります）' : '';
+    if (!confirm(b.dataset.name + ' の区分を「' + b.dataset.now + '」→「' + k + '」に変えますか？' + note)) return;
     const rr = await KickApi.call('admin.updateMember', { 会員ID: b.dataset.kubun, 区分: k });
     msg(rr.message, !rr.ok);
     if (rr.ok) await reloadMembersKeepOpen(b.dataset.kubun);

@@ -17,7 +17,7 @@ function planMemberDeletion(input) {
   var m = input.members.filter(function (x) { return x.会員ID === input.memberId; })[0];
   if (!m) return { ok: false, message: '会員が見つかりません' };
   if (m.会員ID === input.adminId) return { ok: false, message: '自分自身は削除できません' };
-  if (m.管理者 === true || String(m.管理者).toUpperCase() === 'TRUE') return { ok: false, message: '管理者は削除できません' };
+  if (m.管理者 === true || String(m.管理者).toUpperCase() === 'TRUE' || ['部長', '副部長', '事務長', '副事務長'].indexOf(String(m.区分 || '').trim()) >= 0) return { ok: false, message: '管理者は削除できません' };
   var att = input.attendances.filter(function (a) { return a.会員ID === m.会員ID; });
   if (att.length >= DELETE_MAX_ATTENDANCE) {
     return { ok: false, message: '出席が' + att.length + '回ある会員は削除できません。やめた人は「退会」にしてください' };

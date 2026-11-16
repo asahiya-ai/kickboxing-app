@@ -36,8 +36,15 @@ function isTrueFlag(v) {
   return v === true || String(v === undefined || v === null ? '' : v).trim().toUpperCase() === 'TRUE';
 }
 
+// 管理画面に入れる人：会員タブの「管理者」に印がある人と、区分が部長・副部長・事務長・副事務長の人（2026-11-16 耕平さん）
+var KUBUN_ADMIN = ['部長', '副部長', '事務長', '副事務長'];
+function isAdminRole(m) {
+  if (!m) return false;
+  return isTrueFlag(m.管理者) || KUBUN_ADMIN.indexOf(String(m.区分 || '').trim()) >= 0;
+}
+
 function isLocked(failCount) {
   return (Number(failCount) || 0) >= LOCK_LIMIT;
 }
 
-if (typeof module !== 'undefined') module.exports = { normalizeName, validateName, validatePin, findByName, isLocked, isTrueFlag, LOCK_LIMIT };
+if (typeof module !== 'undefined') module.exports = { normalizeName, validateName, validatePin, findByName, isLocked, isTrueFlag, isAdminRole, KUBUN_ADMIN, LOCK_LIMIT };
